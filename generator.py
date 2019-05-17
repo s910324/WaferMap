@@ -197,20 +197,16 @@ class wafer_item(QGraphicsItem):
         self._cy                  = self._y + self._h /2
 
         points = 50
-        delta_theta= ((2 * math.pi) - (2 * self._flat_theta))/points
+        delta_theta1= ((2 * math.pi) - (2 * self._flat_theta))/points
         self.pts = []
+        delta_theta2= ((2 * math.pi) - (2 * self._exclude_theta))/points
+        self.pts2 = []        
         for  i in range(points+1):
-            theta = 1.5 * math.pi + self._flat_theta + delta_theta * i
-            print(radius * math.cos(theta), radius * math.sin(theta))
+            theta = 1.5 * math.pi + self._flat_theta + delta_theta1 * i
             self.pts.append(QPointF(radius * math.cos(theta), radius * math.sin(theta)))
-
-
-
-        delta_theta= ((2 * math.pi) - (2 * self._exclude_theta))/points
-        self.pts2 = []
-        for  i in range(points+1):
-            theta = 1.5 * math.pi + self._exclude_theta + delta_theta * i
+            theta = 1.5 * math.pi + self._exclude_theta + delta_theta2 * i
             self.pts2.append(QPointF((radius-self._ebr_width) * math.cos(theta), (radius-self._ebr_width) * math.sin(theta)))
+
 
         self._pen   = QPen(QColor('#444444'), .5, Qt.SolidLine)
         self._pen.setCosmetic(True)
@@ -222,23 +218,13 @@ class wafer_item(QGraphicsItem):
         painter.setBrush(self._brush)
         painter.drawPolygon(QPolygonF(self.pts))
         painter.drawPolygon(QPolygonF(self.pts2))
-        k=22.54
-        
-        # painter.drawEllipse(self._x, self._y, self._w, self._h)
-        # painter.drawRect(QRectF(self._x, self._y, self._w, (1-0.923)*wafer_rad))
-        # self._points = [QPointF(radius * math.cos(i/360*math.pi*2), radius * math.sin(i/360*math.pi*2)) for i in range(270-, 270+8.838, 5)]
 
-        painter.drawLine(self._cx - self._flat_length/2, self._cy - self._flat_dist, self._cx + self._flat_length/2 , self._cy - self._flat_dist)
-        # painter.drawArc(self.boundingRect(), (90-self._flat_theta)*16, (-360+2*self._flat_theta)*16)
-        # painter.drawLine(self._cx - self._exclude_flat_length/2, self._cy - self._flat_dist + self._flat_exclude, self._cx + self._exclude_flat_length/2 , self._cy - self._flat_dist + self._flat_exclude)
-        # painter.drawArc(self.boundingRect(), (90-k)*16, (-360+2*k)*16)
+
+        # painter.drawLine(self._cx - self._flat_length/2, self._cy - self._flat_dist, self._cx + self._flat_length/2 , self._cy - self._flat_dist)
+
 
     def boundingRect(self):
         return QRectF(self._x, self._y, self._w, self._h)
-
-class ebr_item(wafer_item):
-    def __init__(self, ebr, flat_exclude, parent=None):
-        super(ebr_item, self).__init__(radius = (wafer_rad - ebr), parent = parent)  
 
 
 class asml_ak_item(QGraphicsItem):
@@ -275,19 +261,6 @@ class DiagramView(QGraphicsView):
         self.setFrameShape(QFrame.NoFrame)
 
 
-    # def fitInView(self, scale=True):
-
-    #     if True:
-    #         self.setSceneRect(rect)
-    #         if self.hasPhoto():
-    #             unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-    #             self.scale(1 / unity.width(), 1 / unity.height())
-    #             viewrect = self.viewport().rect()
-    #             scenerect = self.transform().mapRect(rect)
-    #             factor = min(viewrect.width() / scenerect.width(),
-    #                          viewrect.height() / scenerect.height())
-    #             self.scale(factor, factor)
-    #         self._zoom = 0
 
     def wheelEvent(self, event):
         if event.angleDelta().y() > 0:
