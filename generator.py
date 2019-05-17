@@ -10,7 +10,7 @@ import importlib.util
 
 um           = 1
 mm           = 1000*um
-wafer_rad    = 76.2*mm
+wafer_rad    = 75.0*mm
 ebr          = 3*mm
 flat_exclude = 10*mm
 
@@ -66,7 +66,7 @@ class MainWindow(QWidget):
         self.scene.addItem(asml_ak_item(-45*mm, 0))
         self.scene.addItem(asml_ak_item( 45*mm, 0))
         self.scene.addItem(wafer_item())
-        self.scene.addItem(ebr_item(ebr= ebr, flat_exclude= flat_exclude))
+        # self.scene.addItem(ebr_item(ebr= ebr, flat_exclude= flat_exclude))
         
 
 
@@ -181,12 +181,37 @@ class origin_item(QGraphicsItem):
 class wafer_item(QGraphicsItem):
     def __init__(self, radius = wafer_rad, parent=None):
         super(wafer_item, self).__init__(parent)
-        self._x = -radius
-        self._y = -radius
-        self._w = radius *2
-        self._h = radius *2
-        
-        # self._points = [QPointF(radius * math.cos(i/360*math.pi*2), radius * math.sin(i/360*math.pi*2)) for i in range(-90+8.838, 270+8.838, 5)]
+        self._radius              = 75.0*mm
+        self._flat_length         = 57.5*mm
+        self._flat_theta          = math.asin((self._flat_length/2) / self._radius)
+        self._flat_dist           = self._radius * math.cos(self._flat_theta)   
+        self._ebr_width           = 2*mm
+        self._flat_exclude        = 5*mm
+        self._exclude_theta       = math.acos((self._flat_dist-self._flat_exclude)/(self._radius-self._ebr_width))
+        self._exclude_flat_length = (self._radius-self._ebr_width)*math.sin(self._exclude_theta)*2
+        self._x                   = -radius
+        self._y                   = -radius
+        self._w                   = radius *2
+        self._h                   = radius *2        
+        self._cx                  = self._x + self._w /2
+        self._cy                  = self._y + self._h /2
+
+        points = 50
+        delta_theta= ((2 * math.pi) - (2 * self._flat_theta))/points
+        self.pts = []
+        for  i in range(points+1):
+            theta = 1.5 * math.pi + self._flat_theta + delta_theta * i
+            print(radius * math.cos(theta), radius * math.sin(theta))
+            self.pts.append(QPointF(radius * math.cos(theta), radius * math.sin(theta)))
+
+
+
+        delta_theta= ((2 * math.pi) - (2 * self._exclude_theta))/points
+        self.pts2 = []
+        for  i in range(points+1):
+            theta = 1.5 * math.pi + self._exclude_theta + delta_theta * i
+            self.pts2.append(QPointF((radius-self._ebr_width) * math.cos(theta), (radius-self._ebr_width) * math.sin(theta)))
+
         self._pen   = QPen(QColor('#444444'), .5, Qt.SolidLine)
         self._pen.setCosmetic(True)
         self._brush = QBrush(Qt.NoBrush)    
@@ -195,10 +220,18 @@ class wafer_item(QGraphicsItem):
         painter.setRenderHints(QPainter.Antialiasing)
         painter.setPen(self._pen)
         painter.setBrush(self._brush)
-        # painter.drawPolygon(QPolygonF(self._points))
-        k=20
-        painter.drawArc(self.boundingRect(), (90-k)*16, (-360+2*k)*16)
-        # painter.drawLine(self.boundingRect(), (90-k)*16, (-360+2*k)*16)
+        painter.drawPolygon(QPolygonF(self.pts))
+        painter.drawPolygon(QPolygonF(self.pts2))
+        k=22.54
+        
+        # painter.drawEllipse(self._x, self._y, self._w, self._h)
+        # painter.drawRect(QRectF(self._x, self._y, self._w, (1-0.923)*wafer_rad))
+        # self._points = [QPointF(radius * math.cos(i/360*math.pi*2), radius * math.sin(i/360*math.pi*2)) for i in range(270-, 270+8.838, 5)]
+
+        painter.drawLine(self._cx - self._flat_length/2, self._cy - self._flat_dist, self._cx + self._flat_length/2 , self._cy - self._flat_dist)
+        # painter.drawArc(self.boundingRect(), (90-self._flat_theta)*16, (-360+2*self._flat_theta)*16)
+        # painter.drawLine(self._cx - self._exclude_flat_length/2, self._cy - self._flat_dist + self._flat_exclude, self._cx + self._exclude_flat_length/2 , self._cy - self._flat_dist + self._flat_exclude)
+        # painter.drawArc(self.boundingRect(), (90-k)*16, (-360+2*k)*16)
 
     def boundingRect(self):
         return QRectF(self._x, self._y, self._w, self._h)
