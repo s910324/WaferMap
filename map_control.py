@@ -12,14 +12,20 @@ class map_control(QWidget):
         super(map_control, self).__init__(parent)
         
 
-        h = QVBoxLayout()
-        k = PushButtonPlus("update")
-        l = LineEditPlus()
+        
         m = HorizontalLinePlus("Cell")
+        k = PushButtonPlus("update")
+        l1 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l2 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l3 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l4 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l1.setPrefixText("Die width").setPostfixText("um").setPrefixWidth(95).setPostfixWidth(60)
+        l2.setPrefixText("Die height").setPostfixText("um").setPrefixWidth(95).setPostfixWidth(60)
+        l3.setPrefixText("Shot column").setPostfixText("Die(s)").setPrefixWidth(95).setPostfixWidth(60)
+        l4.setPrefixText("Shot row").setPostfixText("Die(s)").setPrefixWidth(95).setPostfixWidth(60)
 
-        h.addWidget(m)
-        m.v.addWidget(l)
-        m.v.addWidget(k)
+        h = VBox(m, l1, l2, l3, l4, k)
+        
         k.clicked.connect(self.load_stylesheet)
 
         self.setLayout(h)
@@ -66,6 +72,7 @@ class HorizontalLinePlus(QWidget):
         self.title_label.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
 
+
     def setTitle(self, text):
         self.title_label.setText(title)
 
@@ -77,15 +84,25 @@ class PushButtonPlus(QPushButton):
         super(PushButtonPlus, self).__init__(parent)
 
 class LineEditPlus(QWidget):
-    def __init__(self, mode = "", parent=None):
+
+    prefix_label   = 0x10000
+    postfix_label  = 0x00100
+    text_edit      = 0x01000
+    postfix_button = 0x00010
+    postfix_combo  = 0x00001
+    def __init__(self, mode = text_edit, parent=None):
         super(LineEditPlus, self).__init__(parent)
-        self._prefix_label   = QLabel("prefix")
-        self._postfix_label  = QLabel("um")
+
+
+
+        self._mode           = mode
+        self._prefix_label   = QLabel()
+        self._postfix_label  = QLabel()
         self._postfix_button = QPushButton()
         self._postfix_combo  = QComboBox()
         self._line_edit      = QLineEdit()
-        self._layout         = HBox(self._prefix_label, self._line_edit, self._postfix_label)
-        
+        self._layout         = HBox()
+
         self._prefix_label.setObjectName("prefix_label")
         self._postfix_label.setObjectName("postfix_label")
         self._postfix_button.setObjectName("posfix_button")
@@ -94,19 +111,72 @@ class LineEditPlus(QWidget):
 
         self._line_edit.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
-
-
+     
         self._layout.setSpacing(0)
         self._layout.setContentsMargins(QMargins(0,0,0,0))
 
+        self.setMode(mode)
         self.setLayout(self._layout)
 
-    def setPostFix(self, postfix):
+    def setMode(self, mode):
+        self._mode = mode
+        l = []
+        if (LineEditPlus.prefix_label & mode == LineEditPlus.prefix_label):
+            l.append(self._prefix_label)
+
+        if (LineEditPlus.text_edit & mode == LineEditPlus.text_edit):
+            l.append(self._line_edit)
+
+        if (LineEditPlus.postfix_label & mode == LineEditPlus.postfix_label):
+            l.append(self._postfix_label)
+        elif (LineEditPlus.postfix_button & mode == LineEditPlus.postfix_button):
+            l.append(self._postfix_button)
+        elif (LineEditPlus.postfix_combo & mode == LineEditPlus.postfix_combo):
+            l.append(self._postfix_combo)
+        self._layout.setLayoutList(l)
+
+    def setPlaceholderText(self, placeholder):
+        self._line_edit.setPlaceholderText(placeholder)
+        return self
+
+    def setValidator(self, validator):
+        self._line_edit.setValidator(validator)
+        return self
+
+    def setPostfixText(self, postfix):
         self._postfix_label.setText(postfix)
+        return self
 
-
+    def setPrefixText(self, prefix):
+        self._prefix_label.setText(prefix)
+        return self
     
+    def setText(self, text):
+        self._line_edit.setText(text)
+        return self
 
+    def text(self):
+        return self._line_edit.text()
+
+    def postfixText(self):
+        return self._postfix_label.text()
+
+    def prefixText(self):
+        return self._prefix_label.text()
+
+    def setPrefixWidth(self, width):
+        self._prefix_label.setFixedWidth(width)
+        return self
+
+    def setTextEditWidth(self, width):
+        self._line_edit.setFixedWidth(width)
+        return self
+
+    def setPostfixWidth(self, width):
+        self._postfix_label.setFixedWidth(width)
+        self._postfix_button.setFixedWidth(width)
+        self._postfix_combo.setFixedWidth(width)
+        return self
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
