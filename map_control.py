@@ -13,18 +13,31 @@ class map_control(QWidget):
         
 
         
-        m = HorizontalLinePlus("Cell")
-        k = PushButtonPlus("update")
-        l1 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
-        l2 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
-        l3 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
-        l4 = LineEditPlus(mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
-        l1.setPrefixText("Die width").setPostfixText("um").setPrefixWidth(95).setPostfixWidth(60)
-        l2.setPrefixText("Die height").setPostfixText("um").setPrefixWidth(95).setPostfixWidth(60)
-        l3.setPrefixText("Shot column").setPostfixText("Die(s)").setPrefixWidth(95).setPostfixWidth(60)
-        l4.setPrefixText("Shot row").setPostfixText("Die(s)").setPrefixWidth(95).setPostfixWidth(60)
+        m1 = HorizontalLinePlus("Cell")
+        l1 = LineEditPlus(prefix = "Die width",     postfix = "um", mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l2 = LineEditPlus(prefix = "Die height",    postfix = "um", mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l1.setPrefixWidth(100).setPostfixWidth(65)
+        l2.setPrefixWidth(100).setPostfixWidth(65)
 
-        h = VBox(m, l1, l2, l3, l4, k)
+
+        m2 = HorizontalLinePlus("Shot")
+        l3 = LineEditPlus(prefix = "Shot column",    postfix = "die", mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l4 = LineEditPlus(prefix = "Shot row",       postfix = "die", mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l3.setPrefixWidth(100).setPostfixWidth(65)
+        l4.setPrefixWidth(100).setPostfixWidth(65)
+
+        m3 = HorizontalLinePlus("Exclusion")
+        l5 = LineEditPlus(prefix = "Edge exclusion", postfix = "mm",            mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l6 = LineEditPlus(prefix = "Flat exclusion", postfix = "mm",            mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l7 = LineEditPlus(prefix = "Zero exclusion", postfix = ["die", "shot"], mode = LineEditPlus.text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_combo)
+        
+        l5.setPrefixWidth(100).setPostfixWidth(65)
+        l6.setPrefixWidth(100).setPostfixWidth(65)
+        l7.setPrefixWidth(100).setPostfixWidth(65)
+
+        k = PushButtonPlus("update")
+        h = VBox(m1, l1, l2, m2, l3, l4, m3, l5, l6, l7, -1, k)
+        h.setSpacing(15)
         
         k.clicked.connect(self.load_stylesheet)
 
@@ -52,8 +65,8 @@ class HorizontalLinePlus(QWidget):
         self.frame_1     = QFrame()
         self.frame_2     = QFrame()
         self.h           = HBox(self.frame_1, self.title_label, self.frame_2)
-        self.v           = VBox(self.h)
-        self.setLayout(self.v)
+        self.h.setContentsMargins(QMargins(0,0,0,0))
+        self.setLayout(self.h)
 
         self.title_label.setObjectName("title")
         self.frame_1.setObjectName("hline")
@@ -67,7 +80,7 @@ class HorizontalLinePlus(QWidget):
 
         self.frame_1.setMidLineWidth(1)
         self.frame_2.setMidLineWidth(1)        
-        self.frame_1.setFixedWidth(15)
+        self.frame_1.setFixedWidth(5)
         
         self.title_label.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
@@ -90,17 +103,18 @@ class LineEditPlus(QWidget):
     text_edit      = 0x01000
     postfix_button = 0x00010
     postfix_combo  = 0x00001
-    def __init__(self, mode = text_edit, parent=None):
+    def __init__(self, text = "", prefix = "", postfix = "", placeholder = "", mode = text_edit, parent=None):
         super(LineEditPlus, self).__init__(parent)
 
 
 
         self._mode           = mode
-        self._prefix_label   = QLabel()
-        self._postfix_label  = QLabel()
-        self._postfix_button = QPushButton()
+        self._prefix_label   = QLabel(prefix)
+        self._postfix_label  = QLabel(postfix if issubclass(type(postfix), str) else "")
+        self._postfix_button = QPushButton(postfix if issubclass(type(postfix), str) else "")
         self._postfix_combo  = QComboBox()
-        self._line_edit      = QLineEdit()
+        self._line_edit      = QLineEdit(text)
+        self._postfix_combo.addItems(postfix if issubclass(type(postfix), list) else [])
         self._layout         = HBox()
 
         self._prefix_label.setObjectName("prefix_label")

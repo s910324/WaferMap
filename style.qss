@@ -3,10 +3,9 @@ QWidget {
 	background-color: "#ffffff";
 }
 
-LineEditPlus QLabel, QLineEdit {
+LineEditPlus QLabel, QLineEdit, QComboBox, QPushButton {
 	font: 8pt "Lato";
 	color: #5a5a5a;
-
 	background-color: "#e3e3e3";
 	border: 1px solid "#e3e3e3";
 	padding: 3px 10px 3px 10px;
@@ -29,6 +28,21 @@ LineEditPlus #postfix_label {
 	border-bottom-left-radius: 0px;
 	border-bottom-right-radius: 3px;
 }
+
+LineEditPlus #postfix_combo {
+	background-color: "#00B5AD";
+	border: 1px solid "#00B5AD";
+	color: #ffffff;
+	border-top-left-radius: 0px;
+	border-top-right-radius: 3px;
+	border-bottom-left-radius: 0px;
+	border-bottom-right-radius: 3px;
+}
+
+LineEditPlus QComboBox::drop-down {
+	border: none;
+}
+
 
 LineEditPlus #line_edit {
 	border-left-width: 0px;
