@@ -1,0 +1,58 @@
+
+QWidget {
+	background-color: "#ffffff";
+}
+
+LineEditPlus QLabel, QLineEdit {
+	font: 8pt "Inconsolata";
+	color: #5a5a5a;
+
+	background-color: "#e3e3e3";
+	border: 1px solid "#e3e3e3";
+	padding: 3px 10px 3px 10px;
+	margin: 0px 0px 0px 0px;
+}
+
+LineEditPlus #prefix_label {
+	background-color: "#00B5AD";
+	border: 1px solid "#00B5AD";
+	color: #ffffff;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 0px;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 0px;
+}
+
+LineEditPlus #postfix_label {
+	border-top-left-radius: 0px;
+	border-top-right-radius: 3px;
+	border-bottom-left-radius: 0px;
+	border-bottom-right-radius: 3px;
+}
+
+LineEditPlus #line_edit {
+	border-left-width: 0px;
+	border-right-width: 0px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	color: #7a7a7a;
+	background-color: "#FFFFFF";
+
+}
+
+PushButtonPlus {
+	background-color: "#00B5AD";
+	border: 1px solid "#00B5AD";
+	font: 8pt "Inconsolata";
+	color: #ffffff;
+	border-radius: 3px;
+	padding: 3px 10px 3px 10px;
+	margin: 0px 0px 0px 0px;
+}
+
+
+HorizontalLinePlus #hline {
+	height: 0px;
+	border: none;
+	border-bottom: 1px solid "#00B5AD";
+}

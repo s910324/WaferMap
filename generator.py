@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
-from PyQt5.QtOpenGL import *
+
 import gdspy
 import math
 import importlib.util
@@ -181,10 +181,10 @@ class origin_item(QGraphicsItem):
 class wafer_item(QGraphicsItem):
     def __init__(self, radius = wafer_rad, parent=None):
         super(wafer_item, self).__init__(parent)
-        self._radius              = 75.0*mm
-        self._flat_length         = 57.5*mm
-        self._flat_theta          = math.asin((self._flat_length/2) / self._radius)
-        self._flat_dist           = self._radius * math.cos(self._flat_theta)   
+        self._radius              = 75.00*mm
+        self._flat_length         = 57.50*mm
+        self._flat_theta          = 0.39340  #math.asin((self._flat_length/2) / self._radius)
+        self._flat_dist           = 69.27*mm #self._radius * math.cos(self._flat_theta)   
         self._ebr_width           = 2*mm
         self._flat_exclude        = 5*mm
         self._exclude_theta       = math.acos((self._flat_dist-self._flat_exclude)/(self._radius-self._ebr_width))
