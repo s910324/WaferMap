@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
-
+from uiplus import HBox, VBox
 
 
 
@@ -11,22 +11,17 @@ class map_control(QWidget):
     def __init__(self, parent=None):
         super(map_control, self).__init__(parent)
         
-        # self._die_width_edit  = QLineEdit()
-        # self._die_htight_edit = QLineEdit()
-        # self._shot_column_edit = QLineEdit()
-        # self._shot_row_edit = QLineEdit()
-        # self._map_offset_x_edit = QLineEdit()
-        # self._map_offset_y_edit = QLineEdit()
-        # self._ebr_edit = QLineEdit()
+
         h = QVBoxLayout()
         k = PushButtonPlus("update")
         l = LineEditPlus()
-        m = HorizontalLinePlus()
+        m = HorizontalLinePlus("Cell")
 
         h.addWidget(m)
-        h.addWidget(l)
-        h.addWidget(k)
+        m.v.addWidget(l)
+        m.v.addWidget(k)
         k.clicked.connect(self.load_stylesheet)
+
         self.setLayout(h)
         self.setStyleSheet("""
             QWidget {
@@ -45,27 +40,36 @@ class map_control(QWidget):
             self.setStyleSheet(stylesheet)    
 
 class HorizontalLinePlus(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, text = "Title",  parent=None):
         super(HorizontalLinePlus, self).__init__(parent)
-        self.h = QHBoxLayout()
-        f1 = QFrame()
-        f2 = QFrame()
-        f1.setObjectName("hline")
-        f2.setObjectName("hline")
-        f1.setFrameStyle(QFrame.HLine | QFrame.Plain)
-        f2.setFrameStyle(QFrame.HLine |  QFrame.Plain)
-        f1.setLineWidth(1)
-        f2.setLineWidth(1)
-        f1.setMidLineWidth(1)
-        f2.setMidLineWidth(1)        
-        f1.setFixedWidth(20)
-        L1 = QLabel("Label")
-        self.h.addWidget(f1)
-        self.h.addWidget(L1)
-        self.h.addWidget(f2)
-        self.setLayout(self.h)
-        L1.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed))
+        self.title_label = QLabel(text)
+        self.frame_1     = QFrame()
+        self.frame_2     = QFrame()
+        self.h           = HBox(self.frame_1, self.title_label, self.frame_2)
+        self.v           = VBox(self.h)
+        self.setLayout(self.v)
+
+        self.title_label.setObjectName("title")
+        self.frame_1.setObjectName("hline")
+        self.frame_2.setObjectName("hline")
+
+        self.frame_1.setFrameStyle(QFrame.HLine | QFrame.Plain)
+        self.frame_2.setFrameStyle(QFrame.HLine | QFrame.Plain)
+
+        self.frame_1.setLineWidth(1)
+        self.frame_2.setLineWidth(1)
+
+        self.frame_1.setMidLineWidth(1)
+        self.frame_2.setMidLineWidth(1)        
+        self.frame_1.setFixedWidth(15)
+        
+        self.title_label.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
+
+    def setTitle(self, text):
+        self.title_label.setText(title)
+
+
 
 
 class PushButtonPlus(QPushButton):
@@ -80,7 +84,7 @@ class LineEditPlus(QWidget):
         self._postfix_button = QPushButton()
         self._postfix_combo  = QComboBox()
         self._line_edit      = QLineEdit()
-        self._layout         = QHBoxLayout()
+        self._layout         = HBox(self._prefix_label, self._line_edit, self._postfix_label)
         
         self._prefix_label.setObjectName("prefix_label")
         self._postfix_label.setObjectName("postfix_label")
@@ -91,13 +95,14 @@ class LineEditPlus(QWidget):
         self._line_edit.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed))
 
-        h = QHBoxLayout()
-        h.setSpacing(0)
-        h.setContentsMargins(QMargins(0,0,0,0))
-        h.addWidget(self._prefix_label)
-        h.addWidget(self._line_edit)
-        h.addWidget(self._postfix_label)
-        self.setLayout(h)
+
+        self._layout.setSpacing(0)
+        self._layout.setContentsMargins(QMargins(0,0,0,0))
+
+        self.setLayout(self._layout)
+
+    def setPostFix(self, postfix):
+        self._postfix_label.setText(postfix)
 
 
     

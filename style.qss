@@ -4,7 +4,7 @@ QWidget {
 }
 
 LineEditPlus QLabel, QLineEdit {
-	font: 8pt "Inconsolata";
+	font: 8pt "Lato";
 	color: #5a5a5a;
 
 	background-color: "#e3e3e3";
@@ -43,16 +43,22 @@ LineEditPlus #line_edit {
 PushButtonPlus {
 	background-color: "#00B5AD";
 	border: 1px solid "#00B5AD";
-	font: 8pt "Inconsolata";
+	font: 8pt "Lato";
 	color: #ffffff;
 	border-radius: 3px;
 	padding: 3px 10px 3px 10px;
 	margin: 0px 0px 0px 0px;
 }
 
+HorizontalLinePlus #title {
+	font: bold 10pt "Lato";
+	color: #888888;
+}
 
 HorizontalLinePlus #hline {
 	height: 0px;
 	border: none;
-	border-bottom: 1px solid "#00B5AD";
+	border-bottom: 1.3px solid "#dddddd";
 }
+
+
