@@ -141,6 +141,7 @@ class LineEditPlus(QWidget):
         self._2nd_seperator  = QLabel()
         self._layout         = HBox()
 
+        self._postfix_combo.setView(QListView())
         self._postfix_combo.addItems(postfix if issubclass(type(postfix), list) else [])
         self._1st_line_edit.setPlaceholderText(placeholder if issubclass(type(placeholder), str) else placeholder[0])
         self._2nd_line_edit.setPlaceholderText(placeholder if issubclass(type(placeholder), str) else placeholder[1])

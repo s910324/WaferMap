@@ -83,6 +83,11 @@ LineEditPlus QComboBox QAbstractItemView  {
 	outline: 0;
 }
 
+LineEditPlus QComboBox QAbstractItemView:item  {
+	background-color: "#ffffff";
+	height: 30px;
+}
+
 LineEditPlus #seperator_label {
 	color: #00B5AD;
 	background-color: "#FFFFFF";
