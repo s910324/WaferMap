@@ -16,42 +16,81 @@ LineEditPlus #prefix_label {
 	background-color: "#00B5AD";
 	border: 1px solid "#00B5AD";
 	color: #ffffff;
+}
+
+LineEditPlus #line_edit {
+	color: #7a7a7a;
+	background-color: "#FFFFFF";
+
+}
+
+
+LineEditPlus [first_item=true] {
+	border-left-width: 1px;
+	border-right-width: 0px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
 	border-top-left-radius: 3px;
 	border-top-right-radius: 0px;
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 0px;
 }
 
-LineEditPlus #postfix_label {
+LineEditPlus [middle_item=true] {
+	border-left-width: 0px;
+	border-right-width: 0px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	border-radius: 0px;
+}
+
+LineEditPlus [last_item=true] {
+	border-left-width: 0px;
+	border-right-width: 1px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
 	border-top-left-radius: 0px;
 	border-top-right-radius: 3px;
 	border-bottom-left-radius: 0px;
 	border-bottom-right-radius: 3px;
 }
 
+LineEditPlus [only_one_item=true] {
+	border-width: 1px;
+	border-radius: 3px;
+}
+
+
+
 LineEditPlus #postfix_combo {
 	background-color: "#00B5AD";
 	border: 1px solid "#00B5AD";
 	color: #ffffff;
-	border-top-left-radius: 0px;
-	border-top-right-radius: 3px;
-	border-bottom-left-radius: 0px;
-	border-bottom-right-radius: 3px;
 }
 
 LineEditPlus QComboBox::drop-down {
 	border: none;
 }
 
+LineEditPlus QComboBox QAbstractItemView  {
+	background-color: "#ffffff";
+	selection-background-color: "#6fe2dd";
+	border: 1px solid "#00B5AD";
+	border-top-left-radius: 0px;
+	border-top-right-radius: 0px;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+	outline: 0;
+}
 
-LineEditPlus #line_edit {
+LineEditPlus #seperator_label {
+	color: #00B5AD;
+	background-color: "#FFFFFF";
 	border-left-width: 0px;
 	border-right-width: 0px;
 	border-top-width: 1px;
 	border-bottom-width: 1px;
-	color: #7a7a7a;
-	background-color: "#FFFFFF";
-
+	border-radius: 0px 0px 0px 0px;
 }
 
 PushButtonPlus {
