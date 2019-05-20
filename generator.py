@@ -11,8 +11,8 @@ import importlib.util
 um           = 1
 mm           = 1000*um
 wafer_rad    = 75.0*mm
-ebr          = 3*mm
-flat_exclude = 5*mm
+ebr          = 1*mm
+flat_exclude = 1*mm
 flat_dist           = 69.27*mm
 class MainWindow(QWidget):
     def __init__(self, parent=None):
@@ -51,14 +51,12 @@ class MainWindow(QWidget):
 
     def m(self):
 
-        
-        ebr          = 3*mm
-        flat_exclude = 10*mm
 
-        row    = 11
-        column = 15
-        die_w  = 1000*um
-        die_h  = 1200*um
+
+        row    = 4
+        column = 3
+        die_w  = 1200*um
+        die_h  = 5000*um
         step_x = die_w*column
         step_y = die_h*row
         offset_x = -step_x/2
@@ -76,8 +74,8 @@ class MainWindow(QWidget):
             for shot in column_array:
                 if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
                     n=1
-                shot = shot.shift_by_die(0, 5*n)                    
-                if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range:
+                shot = shot.shift_by_die(0, 2*n)                    
+                if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=10:
                     self.scene.addItem(shot)
 
 
@@ -86,6 +84,14 @@ class MainWindow(QWidget):
         self.scene.addItem(asml_ak_item(-45*mm, 0))
         self.scene.addItem(asml_ak_item( 45*mm, 0))
         self.scene.addItem(wafer)
+
+        print (
+            """
+            complete shots: %d;
+            partial shots:  %d;
+            gross die:      %d;
+
+            """ % (self.scene.complete_shot_count(), self.scene.partial_shot_count(), self.scene.gross_die_count()))
         # self.scene.addItem(ebr_item(ebr= ebr, flat_exclude= flat_exclude))
         
 
@@ -93,7 +99,9 @@ class MainWindow(QWidget):
 
 
 class shot_item(QGraphicsItem):
-
+    partial_shot  = 0X10
+    complete_shot = 0X01
+    null_shot     = 0x00
     def __init__(self, x, y, row, column, die_width, die_height, wafer, parent=None):
         super(shot_item, self).__init__(parent)
         self._wafer      = wafer
@@ -115,24 +123,58 @@ class shot_item(QGraphicsItem):
         self._die_pen.setCosmetic(True)
         self._dummy_die_brush = QBrush(Qt.NoBrush)
         self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
+        self.update_die_array()
+
+    def shot_status(self):
+        if self.gross_die_count() > 0 and self.dummy_die_count() == 0:
+            return shot_item.complete_shot
+        elif self.gross_die_count == 0:
+            return shot_item.null_shot
+        else:
+            return shot_item.partial_shot
+
+    def gross_die_count(self):
+        return len(self._gross_die)
+
+    def dummy_die_count(self):
+        return len(self._dummy_die)
 
     def shift(self, dx, dy):
         self._x += dx
         self._y += dy
+        self.update_die_array()
         return self
 
     def shift_by_die(self, dx, dy):
         return self.shift(dx * self._die_width, dy * self._die_height)
 
-    
-    def draw_dies(self, painter):
+    def update_die_array(self):
+        self._gross_die  = []
+        self._dummy_die  = []
         for column in range(self._column):
             for row in range(self._row):
                 x, y, w, h = self._x + (column * self._die_width), self._y +( row * self._die_height), self._die_width, self._die_height
                 rect = QRectF(x, y, w, h)
-                painter.setPen( self._die_pen)
-                painter.setBrush( self._gross_die_brush if self._wafer.in_ebr_range(rect) == wafer_item.fully_in_range else self._dummy_die_brush)
-                painter.drawRect(rect)
+                if self._wafer.in_ebr_range(rect) == wafer_item.fully_in_range:
+                    self._gross_die.append(rect)
+                else:
+                    self._dummy_die.append(rect)
+                
+
+    def draw_dies(self, painter):
+        painter.setPen( self._die_pen)
+        
+        if self.gross_die_count() > 0:
+            painter.setBrush( self._gross_die_brush)
+            for die_rect in self._gross_die:
+                painter.drawRect(die_rect)
+
+        if self.dummy_die_count() > 0:
+            painter.setBrush( self._dummy_die_brush)
+            for die_rect in self._dummy_die:
+                painter.drawRect(die_rect)
+
+                
 
 
     def boundingRect(self):
@@ -320,6 +362,16 @@ class DiagramScene(QGraphicsScene):
         super(DiagramScene, self).__init__(parent)
         self.drawBG()
         self.setItemIndexMethod(QGraphicsScene.NoIndex)
+
+
+    def complete_shot_count(self):
+        return sum([ item.shot_status == shot_item.complete_shot for item in self.items() if issubclass(type(item), shot_item)])
+
+    def partial_shot_count(self):
+        return sum([ item.shot_status == shot_item.partial_shot for item in self.items() if issubclass(type(item), shot_item)])
+
+    def gross_die_count(self):
+        return sum([ item.gross_die_count() for item in self.items() if issubclass(type(item), shot_item)])
 
     def drawBG(self):
         brush = QBrush(QColor('#FFFFFF'))
