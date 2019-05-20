@@ -12,8 +12,8 @@ um           = 1
 mm           = 1000*um
 wafer_rad    = 75.0*mm
 ebr          = 3*mm
-flat_exclude = 10*mm
-
+flat_exclude = 5*mm
+flat_dist           = 69.27*mm
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -50,22 +50,42 @@ class MainWindow(QWidget):
 
 
     def m(self):
-        row    = 5
-        column = 5
-        die_w  = 2700*um
-        die_h  = 2700*um
+
+        
+        ebr          = 3*mm
+        flat_exclude = 10*mm
+
+        row    = 11
+        column = 15
+        die_w  = 1000*um
+        die_h  = 1200*um
         step_x = die_w*column
         step_y = die_h*row
-        offset_x = -die_w*2.5*um
+        offset_x = -step_x/2
         offset_y = -750*um
-        for r in range(-8, 8):
-            for c in range(-8, 8):
-                self.scene.addItem(shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, self.scene))
+        wafer = wafer_item(wafer_rad)
+        shot_array = []
+        for c in range(int(((wafer_rad-ebr+offset_x)/step_x)+1)*-1, int(((wafer_rad-ebr+offset_x)/step_x)+2)):
+            column_array = []
+            for r in range(-int(((wafer_rad-flat_exclude)/step_y) + 1),  int(((wafer_rad-ebr)/step_y) + 1)):
+                column_array.append(shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, wafer))
+            shot_array.append(column_array)
+
+        for column_array in shot_array:
+            n = 0
+            for shot in column_array:
+                if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
+                    n=1
+                shot = shot.shift_by_die(0, 5*n)                    
+                if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range:
+                    self.scene.addItem(shot)
+
+
         
         self.scene.addItem(origin_item(offset_x, offset_y))
         self.scene.addItem(asml_ak_item(-45*mm, 0))
         self.scene.addItem(asml_ak_item( 45*mm, 0))
-        self.scene.addItem(wafer_item())
+        self.scene.addItem(wafer)
         # self.scene.addItem(ebr_item(ebr= ebr, flat_exclude= flat_exclude))
         
 
@@ -73,9 +93,10 @@ class MainWindow(QWidget):
 
 
 class shot_item(QGraphicsItem):
-    def __init__(self, x, y, row, column, die_width, die_height, scene, parent=None):
+
+    def __init__(self, x, y, row, column, die_width, die_height, wafer, parent=None):
         super(shot_item, self).__init__(parent)
-        self._scene      = scene
+        self._wafer      = wafer
         self._x          = x
         self._y          = y
         self._die_width  = die_width
@@ -95,16 +116,14 @@ class shot_item(QGraphicsItem):
         self._dummy_die_brush = QBrush(Qt.NoBrush)
         self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
 
-    def append_dies(self):
-        die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
-        die_pen.setCosmetic(True)
-        dummy_die_brush = QBrush(Qt.NoBrush)
-        gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
+    def shift(self, dx, dy):
+        self._x += dx
+        self._y += dy
+        return self
 
-        for column in range(self._column):
-            for row in range(self._row):
-                x, y, w, h = self._x + (column * self._die_width), self._y +( row * self._die_height), self._die_width, self._die_height
-                self._scene.addItem(die_item(x, y, w, h, dummy_die_brush, gross_die_brush, die_pen))
+    def shift_by_die(self, dx, dy):
+        return self.shift(dx * self._die_width, dy * self._die_height)
+
     
     def draw_dies(self, painter):
         for column in range(self._column):
@@ -112,16 +131,8 @@ class shot_item(QGraphicsItem):
                 x, y, w, h = self._x + (column * self._die_width), self._y +( row * self._die_height), self._die_width, self._die_height
                 rect = QRectF(x, y, w, h)
                 painter.setPen( self._die_pen)
-                painter.setBrush( self._gross_die_brush if self.validation(rect) else self._dummy_die_brush)
+                painter.setBrush( self._gross_die_brush if self._wafer.in_ebr_range(rect) == wafer_item.fully_in_range else self._dummy_die_brush)
                 painter.drawRect(rect)
-
-    def validation(self, rect):
-        x = rect.x()
-        y = rect.y()
-        w = rect.width()
-        h = rect.height()
-        return(((x**2) + (y**2))**(0.5) <= wafer_rad-ebr) and (y >= (- wafer_rad + flat_exclude))
-
 
 
     def boundingRect(self):
@@ -179,14 +190,17 @@ class origin_item(QGraphicsItem):
   
 
 class wafer_item(QGraphicsItem):
+    fully_in_range    = 0x11
+    partilly_in_range = 0x10
+    not_in_range      = 0x00
     def __init__(self, radius = wafer_rad, parent=None):
         super(wafer_item, self).__init__(parent)
         self._radius              = 75.00*mm
         self._flat_length         = 57.50*mm
         self._flat_theta          = 0.39340  #math.asin((self._flat_length/2) / self._radius)
         self._flat_dist           = 69.27*mm #self._radius * math.cos(self._flat_theta)   
-        self._ebr_width           = 2*mm
-        self._flat_exclude        = 5*mm
+        self._ebr_width           = ebr
+        self._flat_exclude        = flat_exclude
         self._exclude_theta       = math.acos((self._flat_dist-self._flat_exclude)/(self._radius-self._ebr_width))
         self._exclude_flat_length = (self._radius-self._ebr_width)*math.sin(self._exclude_theta)*2
         self._x                   = -radius
@@ -225,6 +239,31 @@ class wafer_item(QGraphicsItem):
 
     def boundingRect(self):
         return QRectF(self._x, self._y, self._w, self._h)
+
+    def in_ebr_range(self, rect):
+        wafer_rad, ebr, flat_dist,  flat_exclude = self._radius, self._ebr_width, self._flat_dist,  self._flat_exclude
+        u, d, l, r = rect.bottom(), rect.top(), rect.left(), rect.right()
+        detection = [
+            ((d-self._cy)**2 + (l-self._cx)**2) <= (wafer_rad - ebr) **2 and (d-self._cy) >= -flat_dist + flat_exclude, 
+            ((u-self._cy)**2 + (l-self._cx)**2) <= (wafer_rad - ebr) **2 and (u-self._cy) >= -flat_dist + flat_exclude, 
+            ((d-self._cy)**2 + (r-self._cx)**2) <= (wafer_rad - ebr) **2 and (d-self._cy) >= -flat_dist + flat_exclude,
+            ((u-self._cy)**2 + (r-self._cx)**2) <= (wafer_rad - ebr) **2 and (u-self._cy) >= -flat_dist + flat_exclude
+        ]
+        if all(detection):
+            return wafer_item.fully_in_range
+        elif any(detection):
+            return wafer_item.partilly_in_range
+        else:
+            return wafer_item.not_in_range
+
+    def in_zero_range(self, rect):
+        u, d, l, r = rect.bottom(), rect.top(), rect.left(), rect.right()
+        
+        if (u >=0 and  d <= 0 and l <= -45*mm and r >= -45*mm) or (u >=0 and  d <= 0 and l <= 45*mm and r >= 45*mm):
+            return wafer_item.fully_in_range
+        else: 
+            return wafer_item.not_in_range
+
 
 
 class asml_ak_item(QGraphicsItem):
