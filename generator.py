@@ -11,16 +11,16 @@ import importlib.util
 um           = 1
 mm           = 1000*um
 wafer_rad    = 75.0*mm
-ebr          = 1*mm
-flat_exclude = 1*mm
+ebr          = 2*mm
+flat_exclude = 7*mm
 flat_dist           = 69.27*mm
 class MainWindow(QWidget):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
-        factor     = 0.005
+        factor     = 0.003
         self.view  = DiagramView()
-        self.scene = DiagramScene()
-        self.scene.setSceneRect(-wafer_rad*2, -wafer_rad*2, 4*wafer_rad, 4*wafer_rad)
+        self.scene = QGraphicsScene()
+        self.scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
         self.view.scale(1*factor, -1*factor)
         
         self.view.setScene(self.scene)
@@ -33,57 +33,45 @@ class MainWindow(QWidget):
         self.view.centerOn (0,0)
         self.showMaximized()
         self.view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
-    
-    def new_shot(self, x, y, row, column, die_width, die_height):
-        die_array = []
-        for c in range(column):
-            for r in range(row):
-                x, y, w, h = c * die_width, r * die_height, die_width, die_height
-                die_array.append(die_item(x, y, w, h))
-
-        group = self.scene.createItemGroup(die_array)
-        # group.translate(x, y)
-        return group
-            
-        
-
 
 
     def m(self):
 
-
-
-        row    = 4
-        column = 3
-        die_w  = 1200*um
-        die_h  = 5000*um
+        row    = 10
+        column = 10
+        die_w  = 2500*um
+        die_h  = 1500*um
         step_x = die_w*column
         step_y = die_h*row
         offset_x = -step_x/2
-        offset_y = -750*um
+        # offset_y = -750*um
+        offset_y = 0*um
         wafer = wafer_item(wafer_rad)
+        wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
         shot_array = []
-        for c in range(int(((wafer_rad-ebr+offset_x)/step_x)+1)*-1, int(((wafer_rad-ebr+offset_x)/step_x)+2)):
+        for c in range(math.ceil((wafer_rad-ebr-offset_x)/step_x) * -1, math.ceil((wafer_rad-ebr+offset_x)/step_x)+1):
             column_array = []
-            for r in range(-int(((wafer_rad-flat_exclude)/step_y) + 1),  int(((wafer_rad-ebr)/step_y) + 1)):
+            for r in range(math.ceil((wafer_rad-flat_exclude)/step_y) * -1,  math.ceil((wafer_rad-ebr)/step_y)+1):
                 column_array.append(shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, wafer))
             shot_array.append(column_array)
 
         for column_array in shot_array:
             n = 0
+            k = 0
             for shot in column_array:
                 if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
                     n=1
-                shot = shot.shift_by_die(0, 2*n)                    
-                if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=10:
-                    self.scene.addItem(shot)
+                    a =(wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
+                    b =(wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
+                    k =math.ceil((a[1] + b[1])/ die_h)
+                    print (k)
 
+                shot = shot.shift_by_die(0, k*n)
+                if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=0:
+                    wafer.addShot(shot)
 
-        
-        self.scene.addItem(origin_item(offset_x, offset_y))
-        self.scene.addItem(asml_ak_item(-45*mm, 0))
-        self.scene.addItem(asml_ak_item( 45*mm, 0))
         self.scene.addItem(wafer)
+
 
         print (
             """
@@ -91,19 +79,17 @@ class MainWindow(QWidget):
             partial shots:  %d;
             gross die:      %d;
 
-            """ % (self.scene.complete_shot_count(), self.scene.partial_shot_count(), self.scene.gross_die_count()))
-        # self.scene.addItem(ebr_item(ebr= ebr, flat_exclude= flat_exclude))
-        
+            """ % (wafer.complete_shot_count(), wafer.partial_shot_count(), wafer.gross_die_count()))
 
 
 
 
-class shot_item(QGraphicsItem):
+class shot_item(object):
     partial_shot  = 0X10
     complete_shot = 0X01
     null_shot     = 0x00
     def __init__(self, x, y, row, column, die_width, die_height, wafer, parent=None):
-        super(shot_item, self).__init__(parent)
+        super(shot_item, self).__init__()
         self._wafer      = wafer
         self._x          = x
         self._y          = y
@@ -116,13 +102,6 @@ class shot_item(QGraphicsItem):
         self._gross_die  = []
         self._dummy_die  = []
 
-        self._shot_pen   = QPen(QColor('#444444'), 1, Qt.SolidLine)
-        self._shot_brush = QBrush(Qt.NoBrush)
-        self._die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
-        self._shot_pen.setCosmetic(True)
-        self._die_pen.setCosmetic(True)
-        self._dummy_die_brush = QBrush(Qt.NoBrush)
-        self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
         self.update_die_array()
 
     def shot_status(self):
@@ -142,11 +121,15 @@ class shot_item(QGraphicsItem):
     def shift(self, dx, dy):
         self._x += dx
         self._y += dy
-        self.update_die_array()
+        if not (dx == 0) or not(dy == 0):
+            self.update_die_array()
         return self
 
     def shift_by_die(self, dx, dy):
         return self.shift(dx * self._die_width, dy * self._die_height)
+    
+    def shift_by_shot(self, dx, dy):
+        return self.shift(dx * self._w, dy * self._h)
 
     def update_die_array(self):
         self._gross_die  = []
@@ -159,77 +142,10 @@ class shot_item(QGraphicsItem):
                     self._gross_die.append(rect)
                 else:
                     self._dummy_die.append(rect)
-                
-
-    def draw_dies(self, painter):
-        painter.setPen( self._die_pen)
-        
-        if self.gross_die_count() > 0:
-            painter.setBrush( self._gross_die_brush)
-            for die_rect in self._gross_die:
-                painter.drawRect(die_rect)
-
-        if self.dummy_die_count() > 0:
-            painter.setBrush( self._dummy_die_brush)
-            for die_rect in self._dummy_die:
-                painter.drawRect(die_rect)
-
-                
-
 
     def boundingRect(self):
         return QRectF(self._x, self._y, self._w, self._h)
 
-    def paint(self, painter, option, widget):
-        self.draw_dies(painter)
-        painter.setPen(self._shot_pen)
-        painter.setBrush(self._shot_brush)
-        painter.drawRect(QRectF(self._x, self._y, self._w, self._h))
-
-class die_item(QGraphicsItem):
-    def __init__(self, x, y, die_width, die_height, dummy_die_brush, gross_die_brush, die_pen, parent=None):
-        super(die_item, self).__init__(parent)
-        
-        self._x               = x
-        self._y               = y
-        self._w               = die_width
-        self._h               = die_height
-        self.valid            = ((x**2) + (y**2))**(0.5) <= wafer_rad
-        self._dummy_die_brush = dummy_die_brush
-        self._gross_die_brush = gross_die_brush
-        self._current_brush   = self._gross_die_brush if self.valid else self._dummy_die_brush
-        self._die_pen         = die_pen
-
-    
-        self._rect = QRectF(x, y, die_width, die_height)
-
-    def paint(self, painter, option, widget):       
-        painter.setPen(self._die_pen)
-        painter.setBrush(self._current_brush)
-        painter.drawRect(self.boundingRect())
-
-    def boundingRect(self):
-        return QRectF(self._x, self._y, self._w, self._h)
-
-class origin_item(QGraphicsItem):
-    def __init__(self, x, y, w = 800*um, h =800*um, parent=None):
-        super(origin_item, self).__init__(parent)    
-        self._x = x
-        self._y = y
-        self._w = w
-        self._h = h
-
-    def paint(self, painter, option, widget):
-        pen   = QPen(Qt.NoPen)
-        brush = QBrush(QColor("#ff0000"), Qt.SolidPattern)
-        painter.setPen(pen)
-        painter.setBrush(brush)
-        painter.drawEllipse(self._x-(self._w/2), self._y-(self._h/2), self._w, self._h)
-
-    def boundingRect(self):
-        return QRectF(self._x-(self._w/2), self._y-(self._h/2), self._w, self._h)
-
-  
 
 class wafer_item(QGraphicsItem):
     fully_in_range    = 0x11
@@ -251,32 +167,99 @@ class wafer_item(QGraphicsItem):
         self._h                   = radius *2        
         self._cx                  = self._x + self._w /2
         self._cy                  = self._y + self._h /2
+        self._zero_mk             = []
+        self._shot_array          = []
+        self._gross_die           = []
+        self._dummy_die           = []
+        self._indicator_mk        = []
+        self._wafer_pts           = []
+        self._ebr_pts             = []
+        self._wafer_polygon       = QPolygonF()
+        self._ebr_polygon         = QPolygonF()
 
-        points = 50
-        delta_theta1= ((2 * math.pi) - (2 * self._flat_theta))/points
-        self.pts = []
-        delta_theta2= ((2 * math.pi) - (2 * self._exclude_theta))/points
-        self.pts2 = []        
+
+
+        self._wafer_pen       = QPen(QColor('#444444'), .5, Qt.SolidLine)
+        self._wafer_brush     = QBrush(Qt.NoBrush)    
+        self._shot_pen        = QPen(QColor('#444444'), 1, Qt.SolidLine)
+        self._shot_brush      = QBrush(Qt.NoBrush)
+        self._die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
+        self._dummy_die_brush = QBrush(Qt.NoBrush)
+        self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
+        self._zero_pen        = QPen(Qt.NoPen)
+        self._zero_brush      = QBrush(QColor("#444444"), Qt.SolidPattern) 
+        self._indicator_pen   = QPen(Qt.NoPen)
+        self._indicator_brush = QBrush(QColor("#ff0000"), Qt.SolidPattern)   
+        self._shot_pen.setCosmetic(True)
+        self._die_pen.setCosmetic(True)        
+        self._wafer_pen.setCosmetic(True)
+        self.add_wafer_pts()
+
+    def add_wafer_pts(self):
+        self._wafer_pts = []
+        self._ebr_pts   = []  
+        points          = 100
+        delta_theta1    = ((2 * math.pi) - (2 * self._flat_theta))/points
+        delta_theta2    = ((2 * math.pi) - (2 * self._exclude_theta))/points
+      
         for  i in range(points+1):
             theta = 1.5 * math.pi + self._flat_theta + delta_theta1 * i
-            self.pts.append(QPointF(radius * math.cos(theta), radius * math.sin(theta)))
+            self._wafer_pts.append(QPointF(self._radius * math.cos(theta), self._radius * math.sin(theta)))
+            # self._wafer_polygon.append(QPointF(self._radius * math.cos(theta), self._radius * math.sin(theta)))
             theta = 1.5 * math.pi + self._exclude_theta + delta_theta2 * i
-            self.pts2.append(QPointF((radius-self._ebr_width) * math.cos(theta), (radius-self._ebr_width) * math.sin(theta)))
+            self._ebr_pts.append(QPointF((self._radius-self._ebr_width) * math.cos(theta), (self._radius-self._ebr_width) * math.sin(theta)))
+            # self._ebr_polygon.append(QPointF((self._radius-self._ebr_width) * math.cos(theta), (self._radius-self._ebr_width) * math.sin(theta)))
 
 
-        self._pen   = QPen(QColor('#444444'), .5, Qt.SolidLine)
-        self._pen.setCosmetic(True)
-        self._brush = QBrush(Qt.NoBrush)    
+    def gross_die_count(self):
+        return len(self._gross_die)
+
+    def complete_shot_count(self):
+        return sum([ item.shot_status() == shot_item.complete_shot for item in self._shot_array])
+
+    def partial_shot_count(self):
+        return sum([ item.shot_status() == shot_item.partial_shot for item in self._shot_array])
+
+    def add_zero_mk(self,  x, y, w = 1400*um, h = 1400*um):
+        self._zero_mk.append(QRectF(x - w/2, y - h/2, w, h))
+        return self
+
+    def add_indicator_mk(self, x, y, w = 1000*um, h = 1000*um):
+        self._indicator_mk.append(QRectF(x-(w/2), y-(h/2), w, h))
+        return self
 
     def paint(self, painter, option, widget):
-        painter.setRenderHints(QPainter.Antialiasing)
-        painter.setPen(self._pen)
-        painter.setBrush(self._brush)
-        painter.drawPolygon(QPolygonF(self.pts))
-        painter.drawPolygon(QPolygonF(self.pts2))
 
+        painter.setPen( self._die_pen)
+        painter.setBrush( self._gross_die_brush)
+        for die_rect in self._gross_die:
+            painter.drawRect(die_rect)
 
-        # painter.drawLine(self._cx - self._flat_length/2, self._cy - self._flat_dist, self._cx + self._flat_length/2 , self._cy - self._flat_dist)
+        painter.setBrush( self._dummy_die_brush)
+        for die_rect in self._dummy_die:
+            painter.drawRect(die_rect)        
+
+        painter.setPen(self._shot_pen)
+        painter.setBrush(self._shot_brush)        
+        for shot in self._shot_array:
+            painter.drawRect(shot.boundingRect())
+
+        painter.setPen(self._wafer_pen)
+        painter.setBrush(self._wafer_brush)
+        painter.drawPolygon(self._wafer_polygon)
+        painter.drawPolygon(self._ebr_polygon)
+        # painter.drawPolygon(QPolygonF(self._wafer_pts))
+        # painter.drawPolygon(QPolygonF(self._ebr_pts))
+
+        painter.setPen(self._zero_pen)
+        painter.setBrush(self._zero_brush)
+        for mk_rect in self._zero_mk:
+            painter.drawRect(mk_rect)
+
+        painter.setPen(self._indicator_pen)
+        painter.setBrush(self._indicator_brush)
+        for indicator_rect in self._indicator_mk:
+            painter.drawEllipse(indicator_rect)   
 
 
     def boundingRect(self):
@@ -285,6 +268,7 @@ class wafer_item(QGraphicsItem):
     def in_ebr_range(self, rect):
         wafer_rad, ebr, flat_dist,  flat_exclude = self._radius, self._ebr_width, self._flat_dist,  self._flat_exclude
         u, d, l, r = rect.bottom(), rect.top(), rect.left(), rect.right()
+
         detection = [
             ((d-self._cy)**2 + (l-self._cx)**2) <= (wafer_rad - ebr) **2 and (d-self._cy) >= -flat_dist + flat_exclude, 
             ((u-self._cy)**2 + (l-self._cx)**2) <= (wafer_rad - ebr) **2 and (u-self._cy) >= -flat_dist + flat_exclude, 
@@ -298,34 +282,23 @@ class wafer_item(QGraphicsItem):
         else:
             return wafer_item.not_in_range
 
+        return wafer_item.fully_in_range if self._ebr_polygon.intersected(rect) else wafer_item.not_in_range
+
     def in_zero_range(self, rect):
-        u, d, l, r = rect.bottom(), rect.top(), rect.left(), rect.right()
-        
-        if (u >=0 and  d <= 0 and l <= -45*mm and r >= -45*mm) or (u >=0 and  d <= 0 and l <= 45*mm and r >= 45*mm):
-            return wafer_item.fully_in_range
-        else: 
-            return wafer_item.not_in_range
+        ''''must add marks first before adding shots'''
+        return wafer_item.fully_in_range if any([mk_rect.intersected(rect) for mk_rect in self._zero_mk]) else wafer_item.not_in_range
+
+    def collision_avoid(self, main_rect, comp_rect):
+        line = QLineF(main_rect.center(), comp_rect.center())
+        dx = 0 if abs(line.dx()) >= (main_rect.width()  + comp_rect.width())/2  else (main_rect.width()  + (comp_rect.width())/2  - line.dx()) * math.copysign(1, line.dx())
+        dy = 0 if abs(line.dy()) >= (main_rect.height() + comp_rect.height())/2 else (main_rect.height() + (comp_rect.height())/2 - line.dy()) * math.copysign(1, line.dy())
+        return dx, dy if (not dx == 0) and not(dy == 0) else 0
 
 
-
-class asml_ak_item(QGraphicsItem):
-    def __init__(self, x, y, w = 800*um, h = 800*um, parent=None):
-        super(asml_ak_item, self).__init__(parent)
-        self._x = x -w/2
-        self._y = y -h/2
-        self._w = w
-        self._h = h
-
-        self._pen   = QPen(Qt.NoPen)
-        self._brush = QBrush(QColor("#444444"), Qt.SolidPattern)    
-
-    def paint(self, painter, option, widget):
-        painter.setPen(self._pen)
-        painter.setBrush(self._brush)
-        painter.drawRect(self.boundingRect())
-
-    def boundingRect(self):
-        return QRectF(self._x, self._y, self._w, self._h) 
+    def addShot(self, shot):
+        self._shot_array.append(shot)
+        self._gross_die += shot._gross_die
+        self._dummy_die += shot._dummy_die
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -336,12 +309,7 @@ class DiagramView(QGraphicsView):
     def init_ui(self):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        # self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setBackgroundBrush(QBrush(QColor("#ffffff")))
         self.setFrameShape(QFrame.NoFrame)
-
-
 
     def wheelEvent(self, event):
         if event.angleDelta().y() > 0:
@@ -350,33 +318,8 @@ class DiagramView(QGraphicsView):
         else:
             factor = 0.8
             self._zoom -= 1
-        # if self._zoom > 0:
         self.scale(factor, factor)
-        # elif self._zoom == 0:
-        #     self.fitInView()
-        # else:
-        #     self._zoom = 0
 
-class DiagramScene(QGraphicsScene):
-    def __init__(self, parent=None):
-        super(DiagramScene, self).__init__(parent)
-        self.drawBG()
-        self.setItemIndexMethod(QGraphicsScene.NoIndex)
-
-
-    def complete_shot_count(self):
-        return sum([ item.shot_status == shot_item.complete_shot for item in self.items() if issubclass(type(item), shot_item)])
-
-    def partial_shot_count(self):
-        return sum([ item.shot_status == shot_item.partial_shot for item in self.items() if issubclass(type(item), shot_item)])
-
-    def gross_die_count(self):
-        return sum([ item.gross_die_count() for item in self.items() if issubclass(type(item), shot_item)])
-
-    def drawBG(self):
-        brush = QBrush(QColor('#FFFFFF'))
-        # brush.setStyle(Qt.CrossPattern)
-        self.setBackgroundBrush(brush)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
