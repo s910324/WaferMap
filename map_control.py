@@ -8,36 +8,46 @@ from uiplus import HBox, VBox
 
 
 class map_control(QWidget):
+    update_signal = pyqtSignal()
     def __init__(self, parent=None):
         super(map_control, self).__init__(parent)
         
-
+        self.setAutoFillBackground(True)
         
         m1 = HorizontalLinePlus("Cell / Shot")
         l1 = LineEditPlus(prefix = "Die  size",    postfix = "um²",  mode = LineEditPlus.dual_text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
         l2 = LineEditPlus(prefix = "Shot Size",    postfix = "die²", mode = LineEditPlus.dual_text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
+        l1.setText("1250", target = LineEditPlus.text_edit).setText("1550", target = LineEditPlus.dual_text_edit)
         l1.setPrefixWidth(100)
         l1.setPostfixWidth(65)
         l1.setPlaceholderText("Width",  target = LineEditPlus.text_edit)
         l1.setPlaceholderText("Height", target = LineEditPlus.dual_text_edit)
         l1.setAlignment(Qt.AlignCenter, LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
         l1.setText("x", target = LineEditPlus.seperate_1st_label)
-        l1.setValidator(QDoubleValidator(1, 20000, 2, None), target = LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
+        v = QDoubleValidator(1, 15000, 2)
+        v.setNotation(QDoubleValidator.StandardNotation)
+        l1.setValidator(v, target = LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
 
-
+        l2.setText("12", target = LineEditPlus.text_edit).setText("9", target = LineEditPlus.dual_text_edit)
         l2.setPrefixWidth(100)
         l2.setPostfixWidth(65)
         l2.setAlignment(Qt.AlignCenter, LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
         l2.setPlaceholderText("Row",   target = LineEditPlus.text_edit)
         l2.setPlaceholderText("Column", target = LineEditPlus.dual_text_edit)
         l2.setText("x", target = LineEditPlus.seperate_1st_label)        
-        l2.setValidator(QIntValidator(1, 5000, None),     target = LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
+        l2.setValidator(QIntValidator(1, 100),     target = LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
 
         m2 = HorizontalLinePlus("Exclusion")
         l3 = LineEditPlus(prefix = "Edge exclusion", postfix = "mm",            mode = LineEditPlus.text_edit      | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
         l4 = LineEditPlus(prefix = "Flat exclusion", postfix = "mm",            mode = LineEditPlus.text_edit      | LineEditPlus.prefix_label | LineEditPlus.postfix_label)
         l5 = LineEditPlus(prefix = "Zero exclusion", postfix = ["die", "shot"], mode = LineEditPlus.dual_text_edit | LineEditPlus.prefix_label | LineEditPlus.postfix_combo)
         
+        l3.setText("3", target = LineEditPlus.text_edit)
+        l3.setAlignment(Qt.AlignCenter, LineEditPlus.text_edit)
+        l3.setValidator(QIntValidator(1, 10), target = LineEditPlus.text_edit)
+        l4.setText("7", target = LineEditPlus.text_edit)
+        l4.setAlignment(Qt.AlignCenter, LineEditPlus.text_edit)
+        l4.setValidator(QIntValidator(1, 10), target = LineEditPlus.text_edit)
         l3.setPrefixWidth(100).setPostfixWidth(65)
         l4.setPrefixWidth(100).setPostfixWidth(65)
         l5.setPrefixWidth(100).setPostfixWidth(65)
@@ -50,13 +60,16 @@ class map_control(QWidget):
         h = VBox(m1, l1, l2, 20, m2, l3, l4, l5, -1, l6, l7, l8, l9,  k)
         h.setSpacing(15)
         
+        k.clicked.connect(lambda : self.update_signal.emit())
         k.clicked.connect(self.load_stylesheet)
-
+        
         self.setLayout(h)
+        self.load_stylesheet()
         self.setStyleSheet("""
             QWidget {
                 background-color: "#ffffff";
             }""")
+
 
     def load_stylesheet(self):
         f = QFile("./style.qss")

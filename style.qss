@@ -1,7 +1,9 @@
-
+/*
 QWidget {
 	background-color: "#ffffff";
-}
+}*/
+
+
 
 LineEditPlus QLabel, QLineEdit, QComboBox, QPushButton {
 	font: 8pt "Lato";

@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
-
+from map_control import map_control
 import gdspy
 import math
 import importlib.util
@@ -14,33 +14,43 @@ wafer_rad    = 75.0*mm
 ebr          = 2*mm
 flat_exclude = 7*mm
 flat_dist           = 69.27*mm
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
-        factor     = 0.003
-        self.view  = DiagramView()
-        self.scene = QGraphicsScene()
+        factor            = 0.003
+
+        self.view         = DiagramView()
+        self.scene        = WaferScene()
+        self.control      = map_control()
+        self.control_dock = QDockWidget()
+        self.control.setFixedWidth(350)
+        self.control_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.control_dock.setWidget(self.control)
+        self.control_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.control_dock.setTitleBarWidget(QWidget())
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.control_dock)
+
         self.scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
         self.view.scale(1*factor, -1*factor)
-        
+
         self.view.setScene(self.scene)
         self.view.show()
         
-        v = QVBoxLayout()
-        v.addWidget(self.view)
-        self.setLayout(v)
+        
+        self.setCentralWidget(self.view)
         self.m()
         self.view.centerOn (0,0)
-        self.showMaximized()
+    
         self.view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
-
+        self.setWindowTitle("Fake Wafer Map")
+        self.resize(1250, 700)
 
     def m(self):
 
         row    = 10
         column = 10
-        die_w  = 500*um
-        die_h  = 500*um
+        die_w  = 1500*um
+        die_h  = 1500*um
         step_x = die_w*column
         step_y = die_h*row
         offset_x = -step_x/2
@@ -75,15 +85,17 @@ class MainWindow(QWidget):
             nd = 0
             ku = 0
             kd = 0
-            for rd in range(0, math.ceil((wafer_rad-flat_exclude)/step_y) * -1, -1):
+            for rd in range(-1, math.ceil((wafer_rad-flat_exclude)/step_y) * -1, -1):
                 shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*rd), row, column, die_w, die_h, wafer)
                 if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range: 
                     if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
                         lc = (wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
                         rc = (wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
+                        print ("d", lc, rc)
                         kd = math.ceil((lc[1] + rc[1])/ die_h)
                     shot.shift_by_die(0, kd)
-                    wafer.addShot(shot)
+                    if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=1:
+                        wafer.addShot(shot)
 
             for ru in range(0, math.ceil((wafer_rad-ebr)/step_y)+1):
                 shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*ru), row, column, die_w, die_h, wafer)
@@ -91,9 +103,11 @@ class MainWindow(QWidget):
                     if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
                         lc = (wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
                         rc = (wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
+                        print ("u", lc, rc)
                         ku = math.ceil((lc[1] + rc[1])/ die_h)
                     shot.shift_by_die(0, ku)
-                    wafer.addShot(shot)
+                    if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=1:
+                        wafer.addShot(shot)
 
 
         self.scene.addItem(wafer)
@@ -110,23 +124,25 @@ class MainWindow(QWidget):
 
 
 
+
 class shot_item(object):
     partial_shot  = 0X10
     complete_shot = 0X01
     null_shot     = 0x00
     def __init__(self, x, y, row, column, die_width, die_height, wafer, parent=None):
         super(shot_item, self).__init__()
-        self._wafer      = wafer
-        self._x          = x
-        self._y          = y
-        self._die_width  = die_width
-        self._die_height = die_height
-        self._row        = row
-        self._column     = column
-        self._w          = self._die_width  * self._column
-        self._h          = self._die_height * self._row
-        self._gross_die  = []
-        self._dummy_die  = []
+        self._wafer        = wafer
+        self._x            = x
+        self._y            = y
+        self._die_width    = die_width
+        self._die_height   = die_height
+        self._row          = row
+        self._column       = column
+        self._w            = self._die_width  * self._column
+        self._h            = self._die_height * self._row
+        self._gross_die    = []
+        self._dummy_die    = []
+        self._disabled_die = []
 
         self.update_die_array()
 
@@ -197,6 +213,8 @@ class wafer_item(QGraphicsItem):
         self._shot_array          = []
         self._gross_die           = []
         self._dummy_die           = []
+        self._selected_shot       = []
+        self._selected_die        = []
         self._indicator_mk        = []
         self._wafer_pts           = []
         self._ebr_pts             = []
@@ -205,21 +223,64 @@ class wafer_item(QGraphicsItem):
 
 
 
-        self._wafer_pen       = QPen(QColor('#444444'), .5, Qt.SolidLine)
-        self._wafer_brush     = QBrush(Qt.NoBrush)    
-        self._shot_pen        = QPen(QColor('#444444'), 1, Qt.SolidLine)
-        self._shot_brush      = QBrush(Qt.NoBrush)
-        self._die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
-        self._dummy_die_brush = QBrush(Qt.NoBrush)
-        self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
-        self._zero_pen        = QPen(Qt.NoPen)
-        self._zero_brush      = QBrush(QColor("#444444"), Qt.SolidPattern) 
-        self._indicator_pen   = QPen(Qt.NoPen)
-        self._indicator_brush = QBrush(QColor("#ff0000"), Qt.SolidPattern)   
+        self._wafer_pen          = QPen(QColor('#444444'), .5, Qt.SolidLine)
+        self._wafer_brush        = QBrush(Qt.NoBrush)    
+        self._shot_pen           = QPen(QColor('#444444'), 1, Qt.SolidLine)
+        self._shot_brush         = QBrush(Qt.NoBrush)
+        self._die_pen            = QPen(QColor('#dadada'), 1, Qt.SolidLine)
+        self._dummy_die_brush    = QBrush(Qt.NoBrush)
+        self._selected_shot_pen  = QPen(QColor('#ff0000'), 1, Qt.DashLine)
+        self._gross_die_brush    = QBrush(QColor('#777777'), Qt.SolidPattern)
+        self._zero_pen           = QPen(Qt.NoPen)
+        self._zero_brush         = QBrush(QColor("#444444"), Qt.SolidPattern) 
+        self._indicator_pen      = QPen(Qt.NoPen)
+        self._indicator_brush    = QBrush(QColor("#ff0000"), Qt.SolidPattern)  
+        self._selected_die_brush = QBrush(QColor("#ff0000"), Qt.SolidPattern)  
+        self._selected_shot_pen.setCosmetic(True) 
         self._shot_pen.setCosmetic(True)
         self._die_pen.setCosmetic(True)        
         self._wafer_pen.setCosmetic(True)
         self.add_wafer_pts()
+
+    def itemChange(self, change, value):
+
+        if change == QGraphicsItem.ItemSceneHasChanged:
+            if self.scene():
+                self.scene().clicked.connect(self.select_die)
+        return QGraphicsItem.itemChange(self, change, value)
+
+    def select_shot(self, button, pos):
+        if button == Qt.LeftButton:
+            for shot in self._selected_shot:
+                if shot.boundingRect().contains(pos):
+                    self._selected_shot.remove(shot)
+                    self.scene().update(shot.boundingRect())
+                    return
+
+            for shot in self._shot_array:
+                if shot.boundingRect().contains(pos) and shot not in self._selected_shot:
+                    self._selected_shot.append(shot)
+                    self.scene().update(shot.boundingRect())
+                    return
+
+    def select_die(self, button, pos):
+        if button == Qt.LeftButton:
+
+            for die_rect in self._selected_die:
+                if die_rect.contains(pos):
+                    self._selected_die.remove(die_rect)
+                    self.scene().update(die_rect)
+                    return
+
+            for shot in self._shot_array:
+                if shot.boundingRect().contains(pos):
+                    for die_rect in shot._gross_die:
+                        if die_rect.contains(pos):
+                            self._selected_die.append(die_rect)
+                            self.scene().update(die_rect)
+                            return
+
+
 
     def add_wafer_pts(self):
         self._wafer_pts = []
@@ -261,6 +322,11 @@ class wafer_item(QGraphicsItem):
         for die_rect in self._gross_die:
             painter.drawRect(die_rect)
 
+
+        painter.setBrush( self._selected_die_brush)
+        for die_rect in self._selected_die:
+            painter.drawRect(die_rect)
+
         painter.setBrush( self._dummy_die_brush)
         for die_rect in self._dummy_die:
             painter.drawRect(die_rect)        
@@ -268,6 +334,10 @@ class wafer_item(QGraphicsItem):
         painter.setPen(self._shot_pen)
         painter.setBrush(self._shot_brush)        
         for shot in self._shot_array:
+            painter.drawRect(shot.boundingRect())
+
+        painter.setPen(self._selected_shot_pen)
+        for shot in self._selected_shot:
             painter.drawRect(shot.boundingRect())
 
         painter.setPen(self._wafer_pen)
@@ -316,15 +386,17 @@ class wafer_item(QGraphicsItem):
 
     def collision_avoid(self, main_rect, comp_rect):
         line = QLineF(main_rect.center(), comp_rect.center())
-        dx = 0 if abs(line.dx()) >= (main_rect.width()  + comp_rect.width())/2  else (main_rect.width()  + (comp_rect.width())/2  - line.dx()) * math.copysign(1, line.dx())
-        dy = 0 if abs(line.dy()) >= (main_rect.height() + comp_rect.height())/2 else (main_rect.height() + (comp_rect.height())/2 - line.dy()) * math.copysign(1, line.dy())
-        return dx, dy if (not dx == 0) and not(dy == 0) else 0
+        dx = 0 if abs(line.dx()) >= (main_rect.width()  + comp_rect.width())/2  else (main_rect.width()  + (comp_rect.width())/2  - abs(line.dx())) * math.copysign(1, line.dx())
+        dy = 0 if abs(line.dy()) >= (main_rect.height() + comp_rect.height())/2 else (main_rect.height() + (comp_rect.height())/2 - abs(line.dy())) * math.copysign(1, line.dy())
+        return [dx, dy] if (not dx == 0) and not(dy == 0) else [0, 0]
 
 
     def addShot(self, shot):
         self._shot_array.append(shot)
         self._gross_die += shot._gross_die
         self._dummy_die += shot._dummy_die
+
+            
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -346,6 +418,23 @@ class DiagramView(QGraphicsView):
             self._zoom -= 1
         self.scale(factor, factor)
 
+
+
+class WaferScene(QGraphicsScene):
+    clicked = pyqtSignal(Qt.MouseButton, QPointF)
+    def __init__(self, parent=None):
+        super(WaferScene, self).__init__(parent) 
+
+
+    def mousePressEvent(self, event):
+
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(event.button(), event.scenePos())
+            print(event.scenePos())
+
+    def keyPressEvent(self, event):
+        if event.key() in [16777248, 16777249]: #control / shift
+            print (event.key())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
