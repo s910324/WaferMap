@@ -52,12 +52,14 @@ class map_control(QWidget):
         l4.setPrefixWidth(100).setPostfixWidth(65)
         l5.setPrefixWidth(100).setPostfixWidth(65)
 
-        l6 = LineEditPlus(text = "test text")
-        l7 = LineEditPlus(text = "test text", prefix = "lable",  mode = LineEditPlus.text_edit | LineEditPlus.prefix_label)
-        l8 = LineEditPlus(text = "test text", postfix = "lable", mode = LineEditPlus.text_edit | LineEditPlus.postfix_label)
-        l9 = LineEditPlus(text = "test text", postfix = "lable", mode = LineEditPlus.tripple_text_edit | LineEditPlus.postfix_label)
+        self.w = PushButtonPlus("w")
+        self.s = PushButtonPlus("s")
+        self.a = PushButtonPlus("a")
+        self.d = PushButtonPlus("d")
+
+        v = VBox(HBox(-1, self.w, -1), HBox(self.a, LineEditPlus("10", mode= LineEditPlus.text_edit), self.d), HBox(-1, self.s, -1))
         k = PushButtonPlus("update")
-        h = VBox(m1, l1, l2, 20, m2, l3, l4, l5, -1, l6, l7, l8, l9,  k)
+        h = VBox(m1, l1, l2, 20, m2, l3, l4, l5, -1, v,  k)
         h.setSpacing(15)
         
         k.clicked.connect(lambda : self.update_signal.emit())
