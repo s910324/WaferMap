@@ -58,12 +58,12 @@ class map_control(QWidget):
         self.d = PushButtonPlus("d")
 
         v = VBox(HBox(-1, self.w, -1), HBox(self.a, LineEditPlus("10", mode= LineEditPlus.text_edit), self.d), HBox(-1, self.s, -1))
-        k = PushButtonPlus("update")
-        h = VBox(m1, l1, l2, 20, m2, l3, l4, l5, -1, v,  k)
+        self.k = PushButtonPlus("update")
+        h = VBox(m1, l1, l2, 20, m2, l3, l4, l5, -1, v,  self.k)
         h.setSpacing(15)
         
-        k.clicked.connect(lambda : self.update_signal.emit())
-        k.clicked.connect(self.load_stylesheet)
+        self.k.clicked.connect(lambda : self.update_signal.emit())
+        self.k.clicked.connect(self.load_stylesheet)
         
         self.setLayout(h)
         self.load_stylesheet()

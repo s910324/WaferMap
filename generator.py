@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
         self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
         self.control.a.clicked.connect(lambda : self.wafer.shift_all_shots(-100*um,      0))
         self.control.d.clicked.connect(lambda : self.wafer.shift_all_shots( 100*um,      0))
+        self.control.k.clicked.connect(lambda : self.wafer.test())
         self.wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
 
         self.wafer.populate_shots( die_w, die_h, row, column, offset_x, offset_y)
@@ -86,20 +87,25 @@ class shot_item(object):
     partial_shot  = 0X10
     complete_shot = 0X01
     null_shot     = 0x00
-    def __init__(self, x, y, row, column, die_width, die_height, wafer, parent=None):
+    def __init__(self, x, y, row, column, die_width, die_height, column_index, row_index, wafer, parent=None):
         super(shot_item, self).__init__()
-        self._wafer        = wafer
-        self._x            = x
-        self._y            = y
-        self._die_width    = die_width
-        self._die_height   = die_height
-        self._row          = row
-        self._column       = column
-        self._w            = self._die_width  * self._column
-        self._h            = self._die_height * self._row
-        self._gross_die    = []
-        self._dummy_die    = []
-        self._disabled_die = []
+        self._wafer              = wafer
+        self._x                  = x
+        self._y                  = y
+        self._die_width          = die_width
+        self._die_height         = die_height
+        self._row_count          = row
+        self._column_count       = column
+        self._row_index          = row_index
+        self._column_index       = column_index
+        self._w                  = self._die_width  * self._column_count
+        self._h                  = self._die_height * self._row_count
+        self._gross_die          = []
+        self._dummy_die          = []
+        self._disabled_die       = []
+        self._pcm_die            = []
+        self._pcm_die_index      = [[0,0], [1,0], [2,0]]
+        self._disabled_die_index = []
 
         self.update_die_array()
 
@@ -117,6 +123,9 @@ class shot_item(object):
     def dummy_die_count(self):
         return len(self._dummy_die)
 
+    def pcm_die_count(self):
+        return len(self._pcm_die)
+
     def shift(self, dx, dy):
         self._x += dx
         self._y += dy
@@ -131,14 +140,22 @@ class shot_item(object):
         return self.shift(dx * self._w, dy * self._h)
 
     def update_die_array(self):
-        self._gross_die  = []
-        self._dummy_die  = []
-        for column in range(self._column):
-            for row in range(self._row):
+        self._gross_die    = []
+        self._dummy_die    = []
+        # self._pcm_die      = []
+        self._disabled_die = []
+
+        for column in range(self._column_count):
+            for row in range(self._row_count):
                 x, y, w, h = self._x + (column * self._die_width), self._y +( row * self._die_height), self._die_width, self._die_height
                 rect = QRectF(x, y, w, h)
                 if self._wafer.in_ebr_range(rect) == wafer_item.fully_in_range:
-                    self._gross_die.append(rect)
+                    if   [row, column] in self._pcm_die_index:
+                        self._pcm_die.append(rect)    
+                    elif [row, column] in self._disabled_die_index:
+                        self._disabled_die.append(rect)    
+                    else:
+                        self._gross_die.append(rect)
                 else:
                     self._dummy_die.append(rect)
 
@@ -206,6 +223,8 @@ class wafer_item(QGraphicsItem):
         self._shot_array          = []
         self._gross_die           = []
         self._dummy_die           = []
+        self._disabled_die        = []
+        self._pcm_die             = []
         self._selected_shot       = []
         self._selected_die        = []
         self._indicator_mk        = []
@@ -235,6 +254,7 @@ class wafer_item(QGraphicsItem):
         self._wafer_pen.setCosmetic(True)
         self.add_wafer_pts()
 
+
     def populate_shots(self, die_w, die_h, row, column, offset_x, offset_y):
         self.clearShots()
         self._indicator_mk = []
@@ -250,7 +270,7 @@ class wafer_item(QGraphicsItem):
         print(self._shot_offset_x, self._shot_offset_y)
         for c in range(math.ceil((self._radius-self._ebr_width-offset_x)/step_x) * -1, math.ceil((self._radius-self._ebr_width+offset_x)/step_x)+1):                
             for r in range(math.ceil((self._radius-flat_exclude)/step_y) * -1, math.ceil((self._radius-self._ebr_width)/step_y)+1):  
-                shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, self)  
+                shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, row_index = r, column_index = c, wafer = self)  
                 if not self.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=30:
                     self.addShot(shot)
 
@@ -337,9 +357,9 @@ class wafer_item(QGraphicsItem):
     def select_die(self, button, pos):
         if button == Qt.LeftButton:
 
-            for die_rect in self._selected_die:
+            for die_rect in self._disabled_die:
                 if die_rect.contains(pos):
-                    self._selected_die.remove(die_rect)
+                    self._disabled_die.remove(die_rect)
                     self.scene().update(die_rect)
                     return
 
@@ -347,25 +367,23 @@ class wafer_item(QGraphicsItem):
                 if shot.boundingRect().contains(pos):
                     for die_rect in shot._gross_die:
                         if die_rect.contains(pos):
-                            self._selected_die.append(die_rect)
+                            self._disabled_die.append(die_rect)
                             self.scene().update(die_rect)
                             return
-
-
 
     def add_wafer_pts(self):
         self._wafer_pts = []
         self._ebr_pts   = []  
-        points          = 100
+        points          = 80
         delta_theta1    = ((2 * math.pi) - (2 * self._flat_theta))/points
         delta_theta2    = ((2 * math.pi) - (2 * self._exclude_theta))/points
       
         for  i in range(points+1):
             theta = 1.5 * math.pi + self._flat_theta + delta_theta1 * i
-            # self._wafer_pts.append(QPointF(self._radius * math.cos(theta), self._radius * math.sin(theta)))
+            self._wafer_pts.append(QPointF(self._radius * math.cos(theta), self._radius * math.sin(theta)))
             self._wafer_polygon.append(QPointF(self._radius * math.cos(theta), self._radius * math.sin(theta)))
             theta = 1.5 * math.pi + self._exclude_theta + delta_theta2 * i
-            # self._ebr_pts.append(QPointF((self._radius-self._ebr_width) * math.cos(theta), (self._radius-self._ebr_width) * math.sin(theta)))
+            self._ebr_pts.append(QPointF((self._radius-self._ebr_width) * math.cos(theta), (self._radius-self._ebr_width) * math.sin(theta)))
             self._ebr_polygon.append(QPointF((self._radius-self._ebr_width) * math.cos(theta), (self._radius-self._ebr_width) * math.sin(theta)))
 
 
@@ -395,7 +413,7 @@ class wafer_item(QGraphicsItem):
 
 
         painter.setBrush( self._selected_die_brush)
-        for die_rect in self._selected_die:
+        for die_rect in self._disabled_die:
             painter.drawRect(die_rect)
 
         painter.setBrush( self._dummy_die_brush)
@@ -464,18 +482,64 @@ class wafer_item(QGraphicsItem):
 
     def addShot(self, shot):
         self._shot_array.append(shot)
-        self._gross_die += shot._gross_die
-        self._dummy_die += shot._dummy_die
+        self._gross_die    += shot._gross_die
+        self._dummy_die    += shot._dummy_die
+        self._disabled_die += shot._disabled_die
+        self._pcm_die      += shot._pcm_die        
 
     def clearShots(self):
-        self._shot_array = []
-        self._gross_die  = []
-        self._dummy_die  = []
+        self._shot_array   = []
+        self._gross_die    = []
+        self._dummy_die    = []
+        self._disabled_die = []
+        self._pcm_die      = []
         self.clearSelection()
+
+    def updateShots(self):
+        self.clearShots()
+        for shot in self._shot_array:
+            self._gross_die    += shot._gross_die
+            self._dummy_die    += shot._dummy_die
+            self._disabled_die += shot._disabled_die
+            self._pcm_die      += shot._pcm_die  
 
     def clearSelection(self):
         self._selected_shot       = []
         self._selected_die        = []
+
+    def test(self):
+        ld_fulletch = {'layer': 91, 'datatype': 1}
+        ld_partetch = {'layer': 2, 'datatype': 3}
+        ld_liftoff  = {'layer': 0, 'datatype': 7}
+
+        # um        = 1
+        # cm        = 10000*um
+        # wafer_rad = 75*cm
+        # die_size  = [2500*um, 2500*um]
+        # shot_size = [  20,   20]
+        main_cell = gdspy.Cell('MAIN')
+        # shot_cell = gdspy.Cell('SHOT')
+        die_cell  = gdspy.Cell('DIE')
+        # main_cell.add(die_cell)
+
+        for die in self._gross_die:
+            die_rect  = gdspy.Rectangle(((die.x()), (die.y())), ( (die.x()+die.width()), (die.y()+die.height())), **ld_liftoff)
+            die_cell.add(die_rect)
+        
+
+        
+        # shot_cell.add(gdspy.CellArray(die_cell,  shot_size[0], shot_size[1], (die_size[0], die_size[1])))
+        # main_cell.add(gdspy.CellArray(shot_cell, 20, 20, (die_size[0]*shot_size[0], die_size[1]*shot_size[1])))
+
+        wafer_poly = gdspy.Polygon([((qp.x()), (qp.y()))for qp in self._wafer_pts], **ld_fulletch)
+        ebr_poly   = gdspy.Polygon([(qp.x(), qp.y())for qp in self._ebr_pts],   **ld_partetch)
+        main_cell.add(wafer_poly)
+        main_cell.add(ebr_poly)
+        gdspy.write_gds('first.gds')
+
+
+
+
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -541,30 +605,3 @@ if __name__ == '__main__':
     MainWindow.show()
     app.exec_()
 
-    # def test(self):
-    #     ld_fulletch = {'layer': 91, 'datatype': 3}
-    #     # ld_partetch = {'layer': 2, 'datatype': 3}
-    #     # ld_liftoff  = {'layer': 0, 'datatype': 7}
-
-    #     um        = 1
-    #     cm        = 10000*um
-    #     wafer_rad = 75*cm
-    #     die_size  = [2500*um, 2500*um]
-    #     shot_size = [  20,   20]
-    #     main_cell = gdspy.Cell('MAIN')
-    #     shot_cell = gdspy.Cell('SHOT')
-    #     die_cell  = gdspy.Cell('DIE')
-    #     die_rect  = gdspy.Rectangle((0, 0), (die_size[0], die_size[1]))
-
-    #     die_cell.add(die_rect)
-    #     shot_cell.add(gdspy.CellArray(die_cell,  shot_size[0], shot_size[1], (die_size[0], die_size[1])))
-    #     main_cell.add(gdspy.CellArray(shot_cell, 20, 20, (die_size[0]*shot_size[0], die_size[1]*shot_size[1])))
-
-    #     points = [[wafer_rad * math.cos(i/360*math.pi*2), wafer_rad * math.sin(i/360*math.pi*2)] for i in range(-65, 246, 5)]
-    #     poly   = gdspy.Polygon(points, **ld_fulletch)
-    #     main_cell.add(poly)
-
-    #     gdspy.write_gds('first.gds')
-
-    #     # Optionally, display all cells using the internal viewer.
-    #     # gdspy.LayoutViewer()
