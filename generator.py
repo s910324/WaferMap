@@ -49,15 +49,15 @@ class MainWindow(QMainWindow):
 
     def m(self):
 
-        row    = 10
-        column = 10
+        row    = 12
+        column = 12
         die_w  = 1500*um
         die_h  = 1500*um
         step_x = die_w*column
         step_y = die_h*row
         offset_x = -step_x/2
-        # offset_y = -750*um
-        offset_y = 0*um
+        offset_y = -750*um
+        # offset_y = 0*um
         self.wafer = wafer_item(wafer_rad)
         self.control.w.clicked.connect(lambda : self.wafer.shift_all_shots(     0,  100*um))
         self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
@@ -66,61 +66,6 @@ class MainWindow(QMainWindow):
         self.wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
 
         self.wafer.populate_shots( die_w, die_h, row, column, offset_x, offset_y)
-        # shot_array = []
-        # for c in range(math.ceil((wafer_rad-ebr-offset_x)/step_x) * -1, math.ceil((wafer_rad-ebr+offset_x)/step_x)+1):
-        #     column_array = []
-        #     for r in range(math.ceil((wafer_rad-flat_exclude)/step_y) * -1,  math.ceil((wafer_rad-ebr)/step_y)+1):
-        #         column_array.append(shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, wafer))
-        #     shot_array.append(column_array)
-
-        # for column_array in shot_array:
-        #     n = 0
-        #     k = 0
-        #     for shot in column_array:
-        #         if wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
-        #             n=1
-        #             a =(wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #             b =(wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #             k =math.ceil((a[1] + b[1])/ die_h)
-        #             print (k)
-
-        #         shot = shot.shift_by_die(0, k*n)
-        #         if not wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=0:
-        #             wafer.addShot(shot)
-
-        # ************************************************************************************************************************
-        # for c in range(math.ceil((wafer_rad-ebr-offset_x)/step_x) * -1, math.ceil((wafer_rad-ebr+offset_x)/step_x)+1):
-        #     column_array = []
-        #     nu = 0
-        #     nd = 0
-        #     ku = 0
-        #     kd = 0
-        #     for rd in range(-1, math.ceil((wafer_rad-flat_exclude)/step_y) * -1, -1):
-        #         shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*rd), row, column, die_w, die_h, self.wafer)
-        #         if not self.wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range: 
-        #             if self.wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
-        #                 lc = (self.wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #                 rc = (self.wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #                 print ("d", lc, rc)
-        #                 kd = math.ceil((lc[1] + rc[1])/ die_h)
-        #             shot.shift_by_die(0, kd)
-        #             if not self.wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=1:
-        #                 self.wafer.addShot(shot)
-
-        #     for ru in range(0, math.ceil((wafer_rad-ebr)/step_y)+1):
-        #         shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*ru), row, column, die_w, die_h, self.wafer)
-        #         if  not self.wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range: 
-        #             if self.wafer.in_zero_range(shot.boundingRect()) == wafer_item.fully_in_range: 
-        #                 lc = (self.wafer.collision_avoid(QRect(-45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #                 rc = (self.wafer.collision_avoid(QRect( 45*mm-750*um, -750*um, 1500*um, 1500*um), shot.boundingRect()))
-        #                 print ("u", lc, rc)
-        #                 ku = math.ceil((lc[1] + rc[1])/ die_h)
-        #             shot.shift_by_die(0, ku)
-        #             if not self.wafer.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=1:
-        #                 self.wafer.addShot(shot)
-
-        # ************************************************************************************************************************
-
         self.scene.addItem(self.wafer)
         # self.scene.addItem(scene_info_bar())
 
@@ -292,6 +237,27 @@ class wafer_item(QGraphicsItem):
 
     def populate_shots(self, die_w, die_h, row, column, offset_x, offset_y):
         self.clearShots()
+        self._indicator_mk = []
+        self.add_indicator_mk(offset_x, offset_y)
+        step_x              = die_w*column
+        step_y              = die_h*row
+        self._die_w         = die_w
+        self._die_h         = die_h
+        self._shot_row      = row
+        self._shot_column   = column
+        self._shot_offset_x = offset_x
+        self._shot_offset_y = offset_y
+        print(self._shot_offset_x, self._shot_offset_y)
+        for c in range(math.ceil((self._radius-self._ebr_width-offset_x)/step_x) * -1, math.ceil((self._radius-self._ebr_width+offset_x)/step_x)+1):                
+            for r in range(math.ceil((self._radius-flat_exclude)/step_y) * -1, math.ceil((self._radius-self._ebr_width)/step_y)+1):  
+                shot = shot_item(offset_x + (step_x*c), offset_y + (step_y*r), row, column, die_w, die_h, self)  
+                if not self.in_ebr_range(shot.boundingRect()) == wafer_item.not_in_range and shot.gross_die_count()>=30:
+                    self.addShot(shot)
+
+
+
+    def populate_shots_1(self, die_w, die_h, row, column, offset_x, offset_y):
+        self.clearShots()
         step_x              = die_w*column
         step_y              = die_h*row
         self._die_w         = die_w
@@ -333,8 +299,17 @@ class wafer_item(QGraphicsItem):
                         self.addShot(shot)        
 
     def shift_all_shots(self, dx, dy):
+        print("dx, dy =", dx, dy)
         self.populate_shots( self._die_w, self._die_h, self._shot_row, self._shot_column, self._shot_offset_x + dx, self._shot_offset_y + dy)
-        self.scene().update(self.boundingRect())
+        print(self._shot_offset_x, self._shot_offset_y)
+        # for i in range(len(self._indicator_mk)):
+        #     self._indicator_mk[i] = self._indicator_mk[i].translate(dx, dy)
+
+        br         = self.boundingRect()
+        shot_w     = self._shot_column * self._die_w
+        shot_h     = self._shot_row    * self._die_h
+        x, y, w, h = br.x()-shot_w, br.y()-shot_h, br.width() + shot_w*2, br.height() + shot_h*2
+        self.scene().update(QRectF(x, y, w, h))
 
         return self
 
@@ -408,7 +383,7 @@ class wafer_item(QGraphicsItem):
         return self
 
     def add_indicator_mk(self, x, y, w = 1000*um, h = 1000*um):
-        self._indicator_mk.append(QRectF(x-(w/2), y-(h/2), w, h))
+        self._indicator_mk.append(QRectF(x - w/2, y - h/2, w, h))
         return self
 
     def paint(self, painter, option, widget):
