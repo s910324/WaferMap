@@ -306,6 +306,20 @@ class shot_graphic_item(QGraphicsItem):
 
         return anno_line, head_indicater_line, tail_indicator_line, head_arrow_polygon, tail_arrow_polygon, text_point, "%.2fum" % length
 
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemSceneHasChanged:
+            if self.scene():
+                self.scene().clicked.connect(self.select_die)
+        return QGraphicsItem.itemChange(self, change, value)
+
+    def select_die(self, button, pos):
+        if button == Qt.LeftButton:
+            if self.boundingRect().contains(pos):
+                for die in self._shot_item._die_array:
+                    if die.boundingRect().contains(pos):
+                        die.set_die_status(die.die_status() ^ die_item.pcm_die)
+                        self.scene().update(self.boundingRect())
+                        return
 
     def true_translate(self, line, dx, dy):
         p1 = QPointF((line.p1().x() + dx), (line.p1().y() + dy) )
