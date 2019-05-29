@@ -219,7 +219,7 @@ class shot_graphic_item(QGraphicsItem):
         self._die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
         self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
         self._arrow_brush      = QBrush(QColor('#444444'), Qt.SolidPattern)
-        self._pcm_die_brush   = QBrush(Qt.NoBrush)
+        self._pcm_die_brush   = QBrush(QColor('#7CC292'), Qt.SolidPattern)
         self._shot_pen.setCosmetic(True)
         self._die_pen.setCosmetic(True)
         self.init_die()
@@ -243,14 +243,23 @@ class shot_graphic_item(QGraphicsItem):
     def paint(self, painter, option, widget):
 
         for die in self._shot_item._die_array:
-            painter.setPen( self._die_pen)
+
 
             if die.die_status() & die_item.gross_die  == die_item.gross_die:
                 painter.setBrush(self._gross_die_brush)
             if die.die_status() & die_item.pcm_die    == die_item.pcm_die:
-                painter.setBrush(self._pcm_die_brush)                    
+                painter.setBrush(self._pcm_die_brush)   
+            painter.setPen( self._die_pen)
             painter.drawRect(die.boundingRect())
-
+            if die.die_status() & die_item.pcm_die    == die_item.pcm_die:
+                rect = die.boundingRect()
+                pen=QPen(QColor('#ffffff'), 1, Qt.SolidLine)
+                painter.setPen( pen) 
+                painter.setFont(QFont("Lato", 150))  
+                painter.save()
+                painter.scale(1, -1)
+                painter.drawText(QRectF(rect.x(), -rect.height()-rect.y(), rect.width(), rect.height()), Qt.AlignCenter ,"PCM")
+                painter.restore()
 
             painter.setPen(self._shot_pen)
             painter.setBrush(self._shot_brush)
