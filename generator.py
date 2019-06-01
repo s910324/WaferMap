@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
-from map_control import map_control
+from general_control_panel import general_control
 import gdspy
 import math
 import importlib.util
@@ -21,9 +21,9 @@ class MainWindow(QMainWindow):
         self.view         = DiagramView()
         self.shot_scene   = GraphicScene(self.view)
         self.wafer_scene  = GraphicScene(self.view)
-        self.control      = map_control()
+        self.control      = general_control()
         self.control_dock = QDockWidget()
-        self.control.setFixedWidth(350)
+        
         self.control_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.control_dock.setWidget(self.control)
         self.control_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
@@ -33,12 +33,12 @@ class MainWindow(QMainWindow):
         self.wafer_scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
 
 
-        self.view.setScene(self.shot_scene)
+        self.view.setScene(self.wafer_scene)
         self.view.show()
        
         self.wafer = None
         self.setCentralWidget(self.view)
-        self.n()
+        self.m()
         self.view.centerOn (0,0)
     
         self.view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
@@ -72,11 +72,11 @@ class MainWindow(QMainWindow):
         # offset_y = 0*um
         self.view.scale(1*factor, -1*factor)
         self.wafer = wafer_graphic_item(wafer_rad)
-        self.control.w.clicked.connect(lambda : self.wafer.shift_all_shots(     0,  100*um))
-        self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
-        self.control.a.clicked.connect(lambda : self.wafer.shift_all_shots(-100*um,      0))
-        self.control.d.clicked.connect(lambda : self.wafer.shift_all_shots( 100*um,      0))
-        self.control.k.clicked.connect(lambda : self.refresh())
+        # self.control.w.clicked.connect(lambda : self.wafer.shift_all_shots(     0,  100*um))
+        # self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
+        # self.control.a.clicked.connect(lambda : self.wafer.shift_all_shots(-100*um,      0))
+        # self.control.d.clicked.connect(lambda : self.wafer.shift_all_shots( 100*um,      0))
+        # self.control.k.clicked.connect(lambda : self.refresh())
         self.wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
 
         self.wafer.populate_shots( die_w, die_h, row, column, offset_x, offset_y)
@@ -667,8 +667,11 @@ class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
         super(DiagramView, self).__init__(parent)        
         self.init_ui()
-        self._zoom = 1
-
+        self._drag_enabled = False
+        self._zoom         = 1
+        self._drag_pos     = None
+        self._x            = 0
+        self._y            = 0
 
     def init_ui(self):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
@@ -686,6 +689,23 @@ class DiagramView(QGraphicsView):
             self._zoom -= 1
         self.scale(factor, factor)
 
+    def mouseMoveEvent(self, event):
+        if self._drag_enabled:
+            dpos           = self. mapToScene(event.pos())# - self._drag_pos
+            self._drag_pos = event.pos()
+            self._x        = self._x - dpos.x()
+            self._y        = self._y - dpos.y()
+            print(self.sceneRect ())
+            self.translate (dpos.x(), dpos.y())
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MiddleButton:
+            self._drag_enabled = True
+            self._drag_pos = event.pos()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MiddleButton:
+            self._drag_enabled = False
 
 
 class GraphicScene(QGraphicsScene):
@@ -711,10 +731,10 @@ class GraphicScene(QGraphicsScene):
         return self._parent
 
     def mousePressEvent(self, event):
-
+        self.clicked.emit(event.button(), event.scenePos())
         if event.button() == Qt.LeftButton:
-            self.clicked.emit(event.button(), event.scenePos())
             print(event.scenePos())
+
 
     def keyPressEvent(self, event):
         if event.key() in self._key_map:

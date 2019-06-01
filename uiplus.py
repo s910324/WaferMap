@@ -35,6 +35,14 @@ class BoxLayout(QBoxLayout):
             if issubclass(type(l), BoxLayout):
                     l.clearLayout()
 
+    def setContentsMargins(self, *args, **argv):
+        QBoxLayout.setContentsMargins(self, *args, **argv)
+        return self
+
+
+    def setSpacing(self, *args, **argv):
+        QBoxLayout.setSpacing(self, *args, **argv)
+        return self
 
 class HBox(BoxLayout):
     def __init__(self, *ui_list):
@@ -146,6 +154,7 @@ class LineEditPlus(QWidget):
      
         self._layout.setSpacing(0)
         self._layout.setContentsMargins(QMargins(0,0,0,0))
+
 
         self.setMode(mode)
         self.setLayout(self._layout)
@@ -323,12 +332,35 @@ class LineEditPlus(QWidget):
         return self
 
 class StepEditPlus(QWidget):
+    progressChanged = pyqtSignal()
     def __init__(self, parent=None):
         super(StepEditPlus, self).__init__(parent)
         self.setFixedHeight(50)
-        self.counts = 4
-        self.progress = 2
-        self.animate()
+        self.counts    = 5
+        self._progress = 0
+        self._node_list = []
+        self.set_nodes(["Product\nInfo.", "Wafer\nMap", "Adjust\nShots", "Adjust\nDies", "Export\nMap"])
+  
+    def setValue(self, value):
+        self.animate(self._progress, value)
+
+
+    def set_nodes(self, nodes):
+        self.count = len(nodes)
+        self._node_list = nodes
+
+
+    @pyqtProperty(float)
+    def progress(self):
+        return self._progress
+
+    @progress.setter
+    def progress(self, p):
+        print(p)
+        self._progress = p
+        self.progressChanged.emit()
+        self.update()
+
     def paintEvent(self, event):
         painter = QPainter()
         
@@ -343,16 +375,18 @@ class StepEditPlus(QWidget):
         painter.setBrush(brush)
         painter.drawPath(path)
         
+        
         path_progess = QPainterPath()
-        path_progess.addRoundedRect(QRectF(0, 10, ((self.progress + 0.25)/(self.counts + 1) if self.progress < self.counts else 1) * self.width(), 4), 4, 4)
+        path_progess.addRoundedRect(QRectF(0, 10, ((self.progress)/(self.counts + 1) if self.progress < self.counts else 1) * self.width(), 4), 4, 4)
         pen   = QPen(QColor("#00B5AD"), 1)
         brush = QBrush(QColor("#00B5AD"), Qt.SolidPattern)
         painter.setPen(pen)
         painter.setBrush(brush)
         painter.drawPath(path_progess)  
 
-        for nodes_index in range(1, self.counts + 1):
-            if nodes_index <= self.progress:
+        for node_index in range(1, self.counts + 1):
+            label = self._node_list[node_index-1]
+            if node_index <= self.progress:
                 pen   = QPen(QColor("#00B5AD"), 3)
                 brush = QBrush(QColor("#ffffff"), Qt.SolidPattern)
                 painter.setPen(pen)
@@ -363,26 +397,30 @@ class StepEditPlus(QWidget):
                 brush = QBrush(QColor("#ffffff"), Qt.SolidPattern)
                 painter.setPen(pen)
                 painter.setBrush(brush)
+                painter.setFont(QFont("Lato", 8, weight=75))  
+                painter.setPen(pen)
 
-            painter.drawEllipse(QPointF((nodes_index/(self.counts + 1)) * self.width(), 12), 7, 7)
+            painter.drawEllipse(QPointF((node_index/(self.counts + 1)) * self.width(), 12), 7, 7)
 
-            if nodes_index <= self.progress:
+            if node_index <= self.progress:
                 pen   = QPen(Qt.NoPen)
                 brush = QBrush(QColor("#00B5AD"), Qt.SolidPattern)
                 painter.setPen(pen)
                 painter.setBrush(brush) 
-                painter.drawEllipse(QPointF((nodes_index/(self.counts + 1)) * self.width(), 12), 3.2, 3.2)
+                painter.drawEllipse(QPointF((node_index/(self.counts + 1)) * self.width(), 12), 3.2, 3.2)
+
+                pen   = QPen(QColor("#00B5AD"), Qt.SolidLine)
+                painter.setFont(QFont("Lato", 8, weight=75))  
+                painter.setPen(pen)
+                
+            painter.drawText(QRectF(((0.5+node_index-1)/(self.counts+1)) * self.width(), 18, self.width()/(self.counts+1), 35), Qt.AlignCenter, label)
 
         painter.end()
 
-    def setProgress (self, progress):
 
-        self.progress = progress
-        update()
-
-    def animate(self):
-        animation = QPropertyAnimation(self, "progress", self)
-        animation.setDuration(1000)
-        animation.setStartValue(2)
-        animation.setEndValue(4)
+    def animate(self, old_value, new_value):
+        animation = QPropertyAnimation(self, b"progress", self)
+        animation.setDuration(abs(new_value-old_value)*250)
+        animation.setStartValue(old_value)
+        animation.setEndValue(new_value)
         animation.start()
