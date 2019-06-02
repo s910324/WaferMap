@@ -7,7 +7,7 @@ from general_control_panel import general_control
 import gdspy
 import math
 import importlib.util
-
+from uiplus import HBox
 um           = 1
 mm           = 1000*um
 wafer_rad    = 75.0*mm
@@ -18,9 +18,10 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
-        self.view         = DiagramView()
-        self.shot_scene   = GraphicScene(self.view)
-        self.wafer_scene  = GraphicScene(self.view)
+        self.shot_view    = DiagramView()
+        self.wafer_view   = DiagramView()
+        self.shot_scene   = GraphicScene(self.shot_view)
+        self.wafer_scene  = GraphicScene(self.wafer_view)
         self.control      = general_control()
         self.control_dock = QDockWidget()
         
@@ -32,16 +33,24 @@ class MainWindow(QMainWindow):
         self.shot_scene.setSceneRect(-1500*um, -1500*um, 3000*um, 3000*um)
         self.wafer_scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
 
-
-        self.view.setScene(self.wafer_scene)
-        self.view.show()
+        self.control.next_pb.clicked.connect(self.m)
+        self.control.prev_pb.clicked.connect(self.n)
+        self.shot_view.setScene(self.shot_scene)
+        self.wafer_view.setScene(self.wafer_scene)
+        w = QWidget()
+        w.setLayout(HBox(self.shot_view, self.wafer_view))
+        self.setCentralWidget(w)
+        self.shot_view.show()
+        self.wafer_view.hide()
        
         self.wafer = None
-        self.setCentralWidget(self.view)
-        self.m()
-        self.view.centerOn (0,0)
-    
-        self.view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
+        
+        self.n()
+        self.shot_view.centerOn (0,0)
+        self.shot_view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
+        self.wafer_view.centerOn (0,0)
+        self.wafer_view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
+
         self.setWindowTitle("Fake Wafer Map")
         self.resize(1250, 700)
     
@@ -53,10 +62,11 @@ class MainWindow(QMainWindow):
         column_count = 15
         die_width    = 500*um
         die_height   = 800*um
-        
+        self.wafer_view.hide()
+        self.shot_view.show()
         shot         = shot_item(-(column_count*die_width)/2, -(row_count*die_height)/2, row_count, column_count, die_width, die_height, 0, 0, None)
         gshot        = shot_graphic_item(shot)
-        self.view.scale(1*factor, -1*factor)
+        self.shot_view.scale(1*factor, -1*factor)
         self.shot_scene.addItem(gshot)
 
     def m(self):
@@ -69,8 +79,11 @@ class MainWindow(QMainWindow):
         step_y = die_h*row
         offset_x = -step_x/2
         offset_y = -750*um
+        
+        self.shot_view.hide()
+        self.wafer_view.show()
         # offset_y = 0*um
-        self.view.scale(1*factor, -1*factor)
+        self.wafer_view.scale(1*factor, -1*factor)
         self.wafer = wafer_graphic_item(wafer_rad)
         # self.control.w.clicked.connect(lambda : self.wafer.shift_all_shots(     0,  100*um))
         # self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
@@ -690,23 +703,29 @@ class DiagramView(QGraphicsView):
         self.scale(factor, factor)
 
     def mouseMoveEvent(self, event):
+
         if self._drag_enabled:
-            dpos           = self. mapToScene(event.pos())# - self._drag_pos
+            
+            delta = self.mapToScene(event.pos()) - self.mapToScene(self._drag_pos)
+            self.PanView(delta)
             self._drag_pos = event.pos()
-            self._x        = self._x - dpos.x()
-            self._y        = self._y - dpos.y()
-            print(self.sceneRect ())
-            self.translate (dpos.x(), dpos.y())
+        QGraphicsView.mouseMoveEvent(self, event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MiddleButton:
             self._drag_enabled = True
-            self._drag_pos = event.pos()
+            self._drag_pos =event.pos()
+        QGraphicsView.mousePressEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MiddleButton:
             self._drag_enabled = False
+        QGraphicsView.mouseReleaseEvent(self, event)
 
+    def PanView(self, delta):
+        viewCenter = QPoint((self.viewport().width() / 2) - delta.x()/100, (self.viewport().height() / 2) + delta.y()/100)
+        newCenter = self.mapToScene(viewCenter)
+        self.centerOn(newCenter)
 
 class GraphicScene(QGraphicsScene):
     clicked = pyqtSignal(Qt.MouseButton, QPointF)
