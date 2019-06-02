@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         self.wafer_view.hide()
        
         self.wafer = None
+        self.shot  = None
         
         self.n()
         self.shot_view.centerOn (0,0)
@@ -55,46 +56,47 @@ class MainWindow(QMainWindow):
         self.resize(1250, 700)
     
     def n(self):
-        factor       = 0.05
-        x            = 0
-        y            = 0
-        row_count    = 10
-        column_count = 15
-        die_width    = 500*um
-        die_height   = 800*um
+        if self.shot == None:
+            factor       = 0.05
+            x            = 0
+            y            = 0
+            row_count    = 10
+            column_count = 15
+            die_width    = 500*um
+            die_height   = 800*um
+
+            shot_data    = shot_item(-(column_count*die_width)/2, -(row_count*die_height)/2, row_count, column_count, die_width, die_height, 0, 0, None)
+            self.shot    = shot_graphic_item(shot_data)
+            self.shot_view.scale(1*factor, -1*factor)
+            self.shot_scene.addItem(self.shot)
         self.wafer_view.hide()
         self.shot_view.show()
-        shot         = shot_item(-(column_count*die_width)/2, -(row_count*die_height)/2, row_count, column_count, die_width, die_height, 0, 0, None)
-        gshot        = shot_graphic_item(shot)
-        self.shot_view.scale(1*factor, -1*factor)
-        self.shot_scene.addItem(gshot)
 
     def m(self):
-        factor       = 0.003
-        row    = 12
-        column = 12
-        die_w  = 1500*um
-        die_h  = 1500*um
-        step_x = die_w*column
-        step_y = die_h*row
-        offset_x = -step_x/2
-        offset_y = -750*um
-        
+        if self.wafer == None:
+            factor     = 0.003
+            row        = 12
+            column     = 12
+            die_w      = 1500*um
+            die_h      = 1500*um
+            step_x     = die_w*column
+            step_y     = die_h*row
+            offset_x   = -step_x/2
+            offset_y   = -750*um
+            # offset_y = 0*um
+            self.wafer = wafer_graphic_item(wafer_rad)
+            self.wafer_view.scale(1*factor, -1*factor)
+            self.wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
+            self.wafer.populate_shots( die_w, die_h, row, column, offset_x, offset_y)
+            self.wafer_scene.addItem(self.wafer)
+
         self.shot_view.hide()
         self.wafer_view.show()
-        # offset_y = 0*um
-        self.wafer_view.scale(1*factor, -1*factor)
-        self.wafer = wafer_graphic_item(wafer_rad)
-        # self.control.w.clicked.connect(lambda : self.wafer.shift_all_shots(     0,  100*um))
-        # self.control.s.clicked.connect(lambda : self.wafer.shift_all_shots(     0, -100*um))
-        # self.control.a.clicked.connect(lambda : self.wafer.shift_all_shots(-100*um,      0))
-        # self.control.d.clicked.connect(lambda : self.wafer.shift_all_shots( 100*um,      0))
-        # self.control.k.clicked.connect(lambda : self.refresh())
-        self.wafer.add_zero_mk(-45*mm, 0).add_zero_mk(45*mm, 0).add_indicator_mk(offset_x, offset_y)
-
-        self.wafer.populate_shots( die_w, die_h, row, column, offset_x, offset_y)
-        self.wafer_scene.addItem(self.wafer)
         self.wafer.print_info()
+        
+        
+
+        
 
     def refresh(self):
         w, h = self.control.get_die_size()
