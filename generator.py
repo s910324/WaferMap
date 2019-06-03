@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         self.control_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.control_dock.setTitleBarWidget(QWidget())
         self.addDockWidget(Qt.LeftDockWidgetArea, self.control_dock)
-        self.shot_scene.setSceneRect(-1500*um, -1500*um, 3000*um, 3000*um)
+        self.shot_scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
         self.wafer_scene.setSceneRect(-wafer_rad, -wafer_rad, 2*wafer_rad, 2*wafer_rad)
 
         self.control.next_pb.clicked.connect(self.m)
@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
        
         self.wafer = None
         self.shot  = None
-        
+        self.control.prj_control.valueChanged.connect(self.n)
         self.n()
         self.shot_view.centerOn (0,0)
         self.shot_view.setRenderHints (QPainter.HighQualityAntialiasing | QPainter.SmoothPixmapTransform)
@@ -57,18 +57,27 @@ class MainWindow(QMainWindow):
     
     def n(self):
         if self.shot == None:
-            factor       = 0.05
-            x            = 0
-            y            = 0
-            row_count    = 10
-            column_count = 15
-            die_width    = 500*um
-            die_height   = 800*um
+            factor       = 0.02
+            die_width    = 0*um
+            die_height   = 0*um
+            row_count    = 0
+            column_count = 0
 
             shot_data    = shot_item(-(column_count*die_width)/2, -(row_count*die_height)/2, row_count, column_count, die_width, die_height, 0, 0, None)
             self.shot    = shot_graphic_item(shot_data)
             self.shot_view.scale(1*factor, -1*factor)
             self.shot_scene.addItem(self.shot)
+        else:
+            p, t, w, h, r, c = self.control.prj_control.get_value()
+            die_width    = w * um
+            die_height   = h * um
+            row_count    = r
+            column_count = c
+
+            if 0 not in [die_width, die_height]:
+                shot_data    = shot_item(-(column_count*die_width)/2, -(row_count*die_height)/2, row_count, column_count, die_width, die_height, 0, 0, None)
+                self.shot.set_shot_item(shot_data)
+                # self.shot_view.scale(factor, factor)
         self.wafer_view.hide()
         self.shot_view.show()
 
@@ -225,20 +234,31 @@ class shot_item(object):
 class shot_graphic_item(QGraphicsItem):
     def __init__(self, shot,  parent=None):
         super(shot_graphic_item, self).__init__(parent)
-        self._shot_item       = shot
-        self._annotation_lines = []
+        self._shot_item         = shot
+        self._annotation_lines  = []
         self._annotation_offset = 800*um
-
-        self._shot_pen        = QPen(QColor('#444444'), 1, Qt.SolidLine)
-        self._shot_brush      = QBrush(Qt.NoBrush)
-        self._die_pen         = QPen(QColor('#dadada'), 1, Qt.SolidLine)
-        self._gross_die_brush = QBrush(QColor('#777777'), Qt.SolidPattern)
-        self._arrow_brush      = QBrush(QColor('#444444'), Qt.SolidPattern)
-        self._pcm_die_brush   = QBrush(QColor('#7CC292'), Qt.SolidPattern)
+        
+        self._shot_pen          = QPen(QColor('#444444'), 1, Qt.SolidLine)
+        self._shot_brush        = QBrush(Qt.NoBrush)
+        self._die_pen           = QPen(QColor('#dadada'), 1, Qt.SolidLine)
+        self._gross_die_brush   = QBrush(QColor('#777777'), Qt.SolidPattern)
+        self._arrow_brush       = QBrush(QColor('#444444'), Qt.SolidPattern)
+        self._pcm_die_brush     = QBrush(QColor('#7CC292'), Qt.SolidPattern)
         self._shot_pen.setCosmetic(True)
         self._die_pen.setCosmetic(True)
+        self.set_shot_item(shot)
+
+    def set_shot_item(self, shot_item):
+        old_rect                = self.boundingRect()
+        self._shot_item         = shot_item
+        self._annotation_lines  = []
+        new_rect                = self.boundingRect()
+        combine_rect            = old_rect.united(new_rect)
         self.init_die()
         self.init_annotation()
+        if self.scene():
+            self.scene().update(combine_rect)
+
 
     def init_die(self):
         for die in self._shot_item._die_array:
@@ -270,7 +290,7 @@ class shot_graphic_item(QGraphicsItem):
                 rect = die.boundingRect()
                 pen=QPen(QColor('#ffffff'), 1, Qt.SolidLine)
                 painter.setPen( pen) 
-                painter.setFont(QFont("Lato", 150))  
+                painter.setFont(QFont("Lato", 350))  
                 painter.save()
                 painter.scale(1, -1)
                 painter.drawText(QRectF(rect.x(), -rect.height()-rect.y(), rect.width(), rect.height()), Qt.AlignCenter ,"PCM")
@@ -280,19 +300,20 @@ class shot_graphic_item(QGraphicsItem):
             painter.setBrush(self._shot_brush)
             painter.drawRect(self._shot_item.boundingRect())
             painter.setBrush(self._arrow_brush)
-            painter.setFont(QFont("Lato", 150))
+            painter.setFont(QFont("Lato", 200))
         for anno_line in self._annotation_lines:
-            anno_line, head_indi_line, tail_indi_line, head_arrow, tail_poly, text_point, txt = self.get_annotation_item(anno_line)
-            painter.drawLine(anno_line)
-            painter.drawLine(head_indi_line)
-            painter.drawLine(tail_indi_line)
-            painter.drawPolygon(head_arrow)
-            painter.drawPolygon(tail_poly)
-            painter.save()
-            painter.scale(1, -1)
+            if anno_line.length() > 0:
+                anno_line, head_indi_line, tail_indi_line, head_arrow, tail_poly, text_point, txt = self.get_annotation_item(anno_line)
+                painter.drawLine(anno_line)
+                painter.drawLine(head_indi_line)
+                painter.drawLine(tail_indi_line)
+                painter.drawPolygon(head_arrow)
+                painter.drawPolygon(tail_poly)
+                painter.save()
+                painter.scale(1, -1)
 
-            painter.drawText(QPointF(text_point.x()-500*um, -text_point.y()),txt)
-            painter.restore()
+                painter.drawText(QPointF(text_point.x()-500*um, -text_point.y()),txt)
+                painter.restore()
 
 
     def get_annotation_item(self, line, offset = 300*um, arrow_size = 120*um, text_offset = 200*um):
@@ -351,7 +372,12 @@ class shot_graphic_item(QGraphicsItem):
         return QLineF(p1, p2)
 
     def boundingRect(self):
-        return self._shot_item.boundingRect()
+        x = self._shot_item.boundingRect().x()
+        y = self._shot_item.boundingRect().y()
+        w = self._shot_item.boundingRect().width()
+        h = self._shot_item.boundingRect().height()
+        offset = 2000*um
+        return QRectF(x - offset, y - offset, w + (2*offset), h + (2*offset))
 
 class wafer_graphic_item(QGraphicsItem):
     fully_in_range    = 0x11

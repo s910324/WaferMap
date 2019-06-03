@@ -8,7 +8,7 @@ from uiplus import HBox, VBox, LineEditPlus, StepEditPlus, PushButtonPlus, Horiz
 
 
 class prj_control(QWidget):
-
+    valueChanged       = pyqtSignal()
     def __init__(self, parent=None):
         super(prj_control, self).__init__(parent)
         prefix_w, postfix_w  = 110, 85
@@ -41,6 +41,23 @@ class prj_control(QWidget):
         self.shot_info_edit.setText("x", target = LineEditPlus.seperate_1st_label)        
         self.shot_info_edit.setValidator(QIntValidator(1, 100),     target = LineEditPlus.text_edit | LineEditPlus.dual_text_edit)
 
+        self.proj_info_edit.valueChanged.connect(lambda:self.valueChanged.emit())
+        self.die_info_edit.valueChanged.connect(lambda:self.valueChanged.emit())
+        self.shot_info_edit.valueChanged.connect(lambda:self.valueChanged.emit())
 
 
         self.setLayout(VBox(title, self.proj_info_edit, self.die_info_edit, self.shot_info_edit).setSpacing(20).setContentsMargins(QMargins(0,0,0,0)))
+
+
+    def get_value(self):
+        p = self.proj_info_edit.text( target = LineEditPlus.text_edit)
+        t = "6 inch"
+        w = self.die_info_edit.text(  target = LineEditPlus.text_edit)
+        h = self.die_info_edit.text(  target = LineEditPlus.dual_text_edit)
+        r = self.shot_info_edit.text( target = LineEditPlus.text_edit)
+        c = self.shot_info_edit.text( target = LineEditPlus.dual_text_edit)
+        w = float(w) if w else 0
+        h = float(h) if h else 0
+        r = int(r)   if r else 0
+        c = int(c)   if c else 0
+        return p, t, w, h, r, c
